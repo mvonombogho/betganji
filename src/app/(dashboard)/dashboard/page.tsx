@@ -1,72 +1,55 @@
 import { auth } from "@/lib/auth/auth"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { UserProfile } from "@/components/dashboard/user-profile"
+import { PerformanceStats } from "@/components/dashboard/performance-stats"
+import { ActivityFeed } from "@/components/dashboard/activity-feed"
 
 export default async function DashboardPage() {
   const session = await auth()
   
+  if (!session?.user) {
+    return null
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Welcome back, {session?.user?.name}</h1>
-        <p className="text-muted-foreground">
-          Here&apos;s an overview of your betting activity
-        </p>
+    <div className="space-y-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="col-span-4">
+          <UserProfile user={session.user} />
+        </div>
+        <div className="col-span-3">
+          <ActivityFeed />
+        </div>
       </div>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Total Predictions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Success Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0%</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">
-              Active Predictions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4">
+        <PerformanceStats />
       </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Predictions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              No predictions yet. Start by making your first prediction!
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming Matches</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              No upcoming matches. Check back later!
-            </p>
-          </CardContent>
-        </Card>
+      
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="col-span-4">
+          <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <button className="p-4 text-left rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
+              <h3 className="font-semibold">New Prediction</h3>
+              <p className="text-sm opacity-90">Create a new match prediction</p>
+            </button>
+            <button className="p-4 text-left rounded-lg bg-secondary hover:bg-secondary/80">
+              <h3 className="font-semibold">View Matches</h3>
+              <p className="text-sm text-secondary-foreground/60">See upcoming matches</p>
+            </button>
+          </div>
+        </div>
+        
+        <div className="col-span-3">
+          <h2 className="text-2xl font-bold mb-4">Tips & Insights</h2>
+          <div className="rounded-lg border bg-card text-card-foreground p-4">
+            <ul className="list-disc list-inside space-y-2 text-sm">
+              <li>Best performing teams this week</li>
+              <li>Top value bets based on odds analysis</li>
+              <li>Recent form changes to watch</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   )
