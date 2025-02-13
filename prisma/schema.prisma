@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Existing Auth Models
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -16,6 +17,8 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
+  bankroll      Bankroll?
+  bets          PlacedBet[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -53,4 +56,69 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Betting Models
+model Bankroll {
+  id             String           @id @default(cuid())
+  userId         String           @unique
+  user           User             @relation(fields: [userId], references: [id])
+  initialCapital Float
+  currentBalance Float
+  currency       String           @default("USD")
+  maxStakePerBet Float
+  maxStakePerDay Float
+  stakeUnit      String           @default("fixed") // "fixed" or "percentage"
+  stopLoss       Float?
+  targetProfit   Float?
+  bettingSites   BettingSite[]
+  history        BankrollHistory[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model BettingSite {
+  id             String   @id @default(cuid())
+  bankrollId     String
+  bankroll       Bankroll @relation(fields: [bankrollId], references: [id])
+  name           String
+  currentBalance Float
+  totalDeposited Float
+  totalWithdrawn Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([bankrollId, name])
+}
+
+model PlacedBet {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  matchId        String
+  type           String    // single, multiple, system
+  selection      String
+  odds           Float
+  stake          Float
+  potentialWin   Float
+  status         String    // pending, won, lost, void
+  bettingSite    String
+  reasoning      String    @db.Text
+  confidenceLevel Int
+  result         String?
+  profitLoss     Float?
+  placedAt       DateTime  @default(now())
+  settledAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model BankrollHistory {
+  id          String   @id @default(cuid())
+  bankrollId  String
+  bankroll    Bankroll @relation(fields: [bankrollId], references: [id])
+  balance     Float
+  change      Float
+  reason      String
+  createdAt   DateTime @default(now())
 }
