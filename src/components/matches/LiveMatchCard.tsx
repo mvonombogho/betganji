@@ -7,7 +7,9 @@ import { useSocket } from '@/hooks/useSocket';
 import { SOCKET_EVENTS } from '@/lib/socket/events';
 import MatchTimeline from './MatchTimeline';
 import MatchStats from './MatchStats';
+import LiveOddsDisplay from '../odds/LiveOddsDisplay';
 import type { LiveScore, LiveMatchStats, MatchStatus, TimelineEvent } from '@/types/match';
+import type { LiveOdds } from '@/types/odds';
 
 interface LiveMatchCardProps {
   matchId: string;
@@ -17,6 +19,7 @@ interface LiveMatchCardProps {
   initialStatus?: MatchStatus;
   initialEvents?: TimelineEvent[];
   initialStats?: LiveMatchStats;
+  initialOdds?: LiveOdds;
 }
 
 export default function LiveMatchCard({
@@ -26,7 +29,8 @@ export default function LiveMatchCard({
   initialScore = { home: 0, away: 0 },
   initialStatus = 'NOT_STARTED',
   initialEvents = [],
-  initialStats
+  initialStats,
+  initialOdds
 }: LiveMatchCardProps) {
   const [score, setScore] = useState<LiveScore>(initialScore);
   const [status, setStatus] = useState<MatchStatus>(initialStatus);
@@ -100,6 +104,15 @@ export default function LiveMatchCard({
             <p className="text-3xl font-bold">{score.away}</p>
           </div>
         </div>
+
+        {initialOdds && (
+          <div className="mb-4">
+            <LiveOddsDisplay 
+              matchId={matchId} 
+              initialOdds={initialOdds} 
+            />
+          </div>
+        )}
 
         <Separator className="my-4" />
         
