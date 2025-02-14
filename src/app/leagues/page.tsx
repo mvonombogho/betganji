@@ -4,16 +4,23 @@ import { useEffect, useState } from 'react';
 import { LeagueFilter } from '@/components/leagues/league-filter';
 import { LeagueStatsCard } from '@/components/leagues/league-stats-card';
 import { LeaguePerformanceChart } from '@/components/leagues/league-performance-chart';
+import { LeagueMatchesTable } from '@/components/leagues/league-matches-table';
+import { LeaguePredictionsSummary } from '@/components/leagues/league-predictions-summary';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/use-toast';
 
 interface League {
   id: string;
   name: string;
   country: string;
+  _count: {
+    matches: number;
+    teams: number;
+  };
 }
 
 interface DateRange {
@@ -29,6 +36,8 @@ export default function LeaguesPage() {
   const [error, setError] = useState<string>();
   const [stats, setStats] = useState<any>();
   const [performanceData, setPerformanceData] = useState<any[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchLeagues();
@@ -43,6 +52,7 @@ export default function LeaguesPage() {
   const fetchLeagues = async () => {
     try {
       const response = await fetch('/api/leagues');
+      if (!response.ok) throw new Error('Failed to fetch leagues');
       const data = await response.json();
       setLeagues(data);
       if (data.length > 0) {
@@ -50,6 +60,11 @@ export default function LeaguesPage() {
       }
     } catch (err) {
       setError('Failed to load leagues');
+      toast({
+        title: 'Error',
+        description: 'Failed to load leagues. Please try again later.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -58,19 +73,38 @@ export default function LeaguesPage() {
   const fetchLeagueData = async () => {
     setIsLoading(true);
     try {
-      // Fetch league stats
-      const statsResponse = await fetch(`/api/leagues/${selectedLeague}/stats${dateRange ? 
-        `?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}` : ''}`);
-      const statsData = await statsResponse.json();
-      setStats(statsData);
+      const dateParams = dateRange 
+        ? `?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}` 
+        : '';
 
-      // Fetch performance data
-      const performanceResponse = await fetch(`/api/leagues/${selectedLeague}/performance${dateRange ? 
-        `?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}` : ''}`);
-      const performanceData = await performanceResponse.json();
+      // Fetch all data in parallel
+      const [statsRes, performanceRes, matchesRes] = await Promise.all([
+        fetch(`/api/leagues/${selectedLeague}/stats${dateParams}`),
+        fetch(`/api/leagues/${selectedLeague}/performance${dateParams}`),
+        fetch(`/api/leagues/${selectedLeague}/matches${dateParams}`)
+      ]);
+
+      if (!statsRes.ok || !performanceRes.ok || !matchesRes.ok) {
+        throw new Error('Failed to fetch league data');
+      }
+
+      const [statsData, performanceData, matchesData] = await Promise.all([
+        statsRes.json(),
+        performanceRes.json(),
+        matchesRes.json()
+      ]);
+
+      setStats(statsData);
       setPerformanceData(performanceData);
+      setMatches(matchesData);
+      setError(undefined);
     } catch (err) {
       setError('Failed to load league data');
+      toast({
+        title: 'Error',
+        description: 'Failed to load league data. Please try again later.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -105,22 +139,26 @@ export default function LeaguesPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6">
           <Skeleton className="h-72" />
-          <Skeleton className="h-72" />
+          <Skeleton className="h-96" />
         </div>
       ) : selectedLeagueData && stats ? (
         <>
-          <LeagueStatsCard
-            stats={stats}
-            leagueName={selectedLeagueData.name}
-          />
-          <LeaguePerformanceChart
-            data={performanceData}
-            leagueName={selectedLeagueData.name}
-          />
+          <LeaguePredictionsSummary stats={stats} />
           
-          <Tabs defaultValue="matches">
+          <div className="grid gap-6 md:grid-cols-2">
+            <LeagueStatsCard
+              stats={stats}
+              leagueName={selectedLeagueData.name}
+            />
+            <LeaguePerformanceChart
+              data={performanceData}
+              leagueName={selectedLeagueData.name}
+            />
+          </div>
+          
+          <Tabs defaultValue="matches" className="w-full">
             <TabsList>
               <TabsTrigger value="matches">Matches</TabsTrigger>
               <TabsTrigger value="predictions">Predictions</TabsTrigger>
@@ -128,17 +166,19 @@ export default function LeaguesPage() {
             </TabsList>
             <TabsContent value="matches">
               <Card className="p-4">
-                {/* Match table component will go here */}
+                <LeagueMatchesTable matches={matches} />
               </Card>
             </TabsContent>
             <TabsContent value="predictions">
               <Card className="p-4">
-                {/* Predictions table component will go here */}
+                {/* Will implement predictions table in next iteration */}
+                <p>Coming soon...</p>
               </Card>
             </TabsContent>
             <TabsContent value="teams">
               <Card className="p-4">
-                {/* Teams grid component will go here */}
+                {/* Will implement teams grid in next iteration */}
+                <p>Coming soon...</p>
               </Card>
             </TabsContent>
           </Tabs>
