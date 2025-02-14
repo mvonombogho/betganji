@@ -1,5 +1,5 @@
 import LiveMatchCard from '@/components/matches/LiveMatchCard';
-import { TimelineEvent } from '@/types/match';
+import type { TimelineEvent, LiveMatchStats } from '@/types/match';
 
 const demoEvents: TimelineEvent[] = [
   {
@@ -20,6 +20,13 @@ const demoEvents: TimelineEvent[] = [
   },
 ];
 
+const demoStats: LiveMatchStats = {
+  possession: { home: 57, away: 43 },
+  shots: { home: 8, away: 6 },
+  shotsOnTarget: { home: 3, away: 2 },
+  corners: { home: 4, away: 2 }
+};
+
 export default function LiveMatchPage({ params }: { params: { id: string } }) {
   return (
     <div className="container mx-auto py-8">
@@ -30,6 +37,7 @@ export default function LiveMatchPage({ params }: { params: { id: string } }) {
         initialStatus="FIRST_HALF"
         initialScore={{ home: 1, away: 0 }}
         initialEvents={demoEvents}
+        initialStats={demoStats}
       />
     </div>
   );
