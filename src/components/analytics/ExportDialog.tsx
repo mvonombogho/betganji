@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Download } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { Download, Loader2 } from 'lucide-react';
 import { generateCSVReport, downloadCSV } from '@/lib/services/reportGenerator';
 import { generateExcelWorkbook, downloadExcel } from '@/lib/services/excelGenerator';
 import type { PlacedBet } from '@/types/bet';
@@ -19,44 +20,71 @@ type ExportFormat = 'csv' | 'excel';
 export default function ExportDialog({ bets }: ExportDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [format, setFormat] = useState<ExportFormat>('excel');
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
+  
   const [options, setOptions] = useState({
     includeOverview: true,
     includeBookmakers: true,
     includeMonthly: true
   });
+  
   const [dateRange, setDateRange] = useState<{
     start?: Date;
     end?: Date;
   }>({});
 
-  const handleExport = () => {
-    let filteredBets = [...bets];
+  const handleExport = async () => {
+    setIsExporting(true);
+    
+    try {
+      let filteredBets = [...bets];
 
-    if (dateRange.start && dateRange.end) {
-      filteredBets = bets.filter(bet => {
-        const betDate = new Date(bet.createdAt);
-        return betDate >= dateRange.start! && betDate <= dateRange.end!;
+      if (dateRange.start && dateRange.end) {
+        filteredBets = bets.filter(bet => {
+          const betDate = new Date(bet.createdAt);
+          return betDate >= dateRange.start! && betDate <= dateRange.end!;
+        });
+      }
+
+      const filename = `betting-report-${new Date().toISOString().split('T')[0]}`;
+
+      if (format === 'csv') {
+        const csv = generateCSVReport(filteredBets, {
+          ...options,
+          dateRange: dateRange.start && dateRange.end ? dateRange : undefined
+        });
+        downloadCSV(csv, `${filename}.csv`);
+      } else {
+        const workbook = generateExcelWorkbook(filteredBets, {
+          ...options,
+          dateRange: dateRange.start && dateRange.end ? dateRange : undefined
+        });
+        const success = downloadExcel(workbook, `${filename}.xlsx`);
+        
+        if (!success) throw new Error('Failed to download Excel file');
+      }
+
+      toast({
+        title: 'Export Successful',
+        description: `Your betting report has been downloaded as a ${format.toUpperCase()} file.`,
+        variant: 'default'
       });
+
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: 'Export Failed',
+        description: 'There was an error exporting your betting report. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    const filename = `betting-report-${new Date().toISOString().split('T')[0]}`;
-
-    if (format === 'csv') {
-      const csv = generateCSVReport(filteredBets, {
-        ...options,
-        dateRange: dateRange.start && dateRange.end ? dateRange : undefined
-      });
-      downloadCSV(csv, `${filename}.csv`);
-    } else {
-      const workbook = generateExcelWorkbook(filteredBets, {
-        ...options,
-        dateRange: dateRange.start && dateRange.end ? dateRange : undefined
-      });
-      downloadExcel(workbook, `${filename}.xlsx`);
-    }
-
-    setIsOpen(false);
   };
+
+  const atLeastOneSection = options.includeOverview || options.includeBookmakers || options.includeMonthly;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -146,8 +174,22 @@ export default function ExportDialog({ bets }: ExportDialogProps) {
           </div>
         </div>
 
-        <Button onClick={handleExport} className="w-full">
-          Download {format === 'csv' ? 'CSV' : 'Excel'}
+        <Button 
+          onClick={handleExport} 
+          className="w-full"
+          disabled={isExporting || !atLeastOneSection}
+        >
+          {isExporting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Exporting...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              Download {format === 'csv' ? 'CSV' : 'Excel'}
+            </>
+          )}
         </Button>
       </DialogContent>
     </Dialog>
