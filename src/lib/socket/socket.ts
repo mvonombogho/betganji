@@ -33,23 +33,3 @@ export const getSocket = () => {
   }
   return socket;
 };
-
-export const subscribeToMatch = (matchId: string) => {
-  const socket = getSocket();
-  socket.emit('subscribe:match', matchId);
-};
-
-export const unsubscribeFromMatch = (matchId: string) => {
-  const socket = getSocket();
-  socket.emit('unsubscribe:match', matchId);
-};
-
-export const subscribeToOdds = (matchId: string) => {
-  const socket = getSocket();
-  socket.emit('subscribe:odds', matchId);
-};
-
-export const unsubscribeFromOdds = (matchId: string) => {
-  const socket = getSocket();
-  socket.emit('unsubscribe:odds', matchId);
-};
