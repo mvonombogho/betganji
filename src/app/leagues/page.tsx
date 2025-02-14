@@ -7,6 +7,7 @@ import { LeaguePerformanceChart } from '@/components/leagues/league-performance-
 import { LeagueMatchesTable } from '@/components/leagues/league-matches-table';
 import { LeaguePredictionsTable } from '@/components/leagues/league-predictions-table';
 import { LeaguePredictionsSummary } from '@/components/leagues/league-predictions-summary';
+import { LeagueTeamsGrid } from '@/components/leagues/league-teams-grid';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Pagination } from '@/components/ui/pagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -46,6 +47,8 @@ export default function LeaguesPage() {
   const [performanceData, setPerformanceData] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState('matches');
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     totalPages: 1,
@@ -91,34 +94,51 @@ export default function LeaguesPage() {
         ? `&from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}` 
         : '';
 
-      // Fetch all data in parallel
-      const [statsRes, performanceRes, matchesRes, predictionsRes] = await Promise.all([
+      // Fetch data based on active tab to optimize performance
+      const requests = [
         fetch(`/api/leagues/${selectedLeague}/stats${dateParams}`),
         fetch(`/api/leagues/${selectedLeague}/performance${dateParams}`),
-        fetch(`/api/leagues/${selectedLeague}/matches${dateParams}`),
-        fetch(`/api/leagues/${selectedLeague}/predictions?page=${pagination.page}&limit=10${dateParams}`)
-      ]);
+      ];
 
-      if (!statsRes.ok || !performanceRes.ok || !matchesRes.ok || !predictionsRes.ok) {
+      if (activeTab === 'matches' || !activeTab) {
+        requests.push(fetch(`/api/leagues/${selectedLeague}/matches${dateParams}`));
+      }
+      if (activeTab === 'predictions') {
+        requests.push(fetch(`/api/leagues/${selectedLeague}/predictions?page=${pagination.page}&limit=10${dateParams}`));
+      }
+      if (activeTab === 'teams') {
+        requests.push(fetch(`/api/leagues/${selectedLeague}/teams${dateParams}`));
+      }
+
+      const responses = await Promise.all(requests);
+      
+      if (responses.some(res => !res.ok)) {
         throw new Error('Failed to fetch league data');
       }
 
-      const [statsData, performanceData, matchesData, predictionsData] = await Promise.all([
-        statsRes.json(),
-        performanceRes.json(),
-        matchesRes.json(),
-        predictionsRes.json()
-      ]);
+      const [statsData, performanceData, ...otherData] = await Promise.all(
+        responses.map(res => res.json())
+      );
 
       setStats(statsData);
       setPerformanceData(performanceData);
-      setMatches(matchesData);
-      setPredictions(predictionsData.predictions);
-      setPagination({
-        page: predictionsData.pagination.page,
-        totalPages: predictionsData.pagination.totalPages,
-        total: predictionsData.pagination.total
-      });
+
+      // Update state based on active tab
+      if (activeTab === 'matches' || !activeTab) {
+        setMatches(otherData[0] || []);
+      }
+      if (activeTab === 'predictions') {
+        setPredictions(otherData[0]?.predictions || []);
+        setPagination({
+          page: otherData[0]?.pagination.page || 1,
+          totalPages: otherData[0]?.pagination.totalPages || 1,
+          total: otherData[0]?.pagination.total || 0
+        });
+      }
+      if (activeTab === 'teams') {
+        setTeams(otherData[0] || []);
+      }
+
       setError(undefined);
     } catch (err) {
       setError('Failed to load league data');
@@ -129,6 +149,14 @@ export default function LeaguesPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // Reset pagination when switching tabs
+    if (value === 'predictions') {
+      setPagination(prev => ({ ...prev, page: 1 }));
     }
   };
 
@@ -184,7 +212,7 @@ export default function LeaguesPage() {
             />
           </div>
           
-          <Tabs defaultValue="matches" className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList>
               <TabsTrigger value="matches">Matches</TabsTrigger>
               <TabsTrigger value="predictions">Predictions</TabsTrigger>
@@ -209,8 +237,7 @@ export default function LeaguesPage() {
             </TabsContent>
             <TabsContent value="teams">
               <Card className="p-4">
-                {/* Will implement teams grid in next iteration */}
-                <p>Coming soon...</p>
+                <LeagueTeamsGrid teams={teams} />
               </Card>
             </TabsContent>
           </Tabs>
