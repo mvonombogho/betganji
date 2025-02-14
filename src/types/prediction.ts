@@ -1,39 +1,38 @@
-export type PredictionStatus = 'pending' | 'won' | 'lost' | 'void'
-export type PredictionType = 'match_result' | 'over_under' | 'both_teams_to_score'
+import { Match } from './match';
 
 export interface Prediction {
-  id: string
-  matchId: string
-  userId: string
-  type: PredictionType
-  prediction: string
-  odds: number
-  stake?: number
-  confidence: number
-  status: PredictionStatus
-  result?: string
-  analysis: string
-  createdAt: Date
-  updatedAt: Date
+  id: string;
+  matchId: string;
+  match: Match;
+  result: string;
+  confidence: number;
+  patterns?: PredictionPattern[];
+  createdAt: Date;
+  insights?: PredictionInsights;
 }
 
-export interface PredictionFormData {
-  matchId: string
-  type: PredictionType
-  prediction: string
-  odds: number
-  stake?: number
-  confidence: number
-  analysis: string
+export interface PredictionPattern {
+  type: 'positive' | 'negative';
+  description: string;
 }
 
-export interface PredictionStats {
-  totalPredictions: number
-  wonPredictions: number
-  lostPredictions: number
-  voidPredictions: number
-  winRate: number
-  averageOdds: number
-  profit: number
-  roi: number
+export interface PredictionInsights {
+  rationale: string;
+  keyFactors: string[];
+  riskLevel: 'low' | 'medium' | 'high';
+}
+
+export interface HistoricalData {
+  accuracy: number;
+  totalPredictions: number;
+  recentTrend: {
+    wins: number;
+    total: number;
+  };
+}
+
+export interface LeagueStats {
+  totalPredictions: number;
+  successRate: number;
+  averageConfidence: number;
 }
