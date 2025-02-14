@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { calculateBetStats, calculateBookmakerStats, calculateMonthlyPerformance } from './betAnalytics';
+import { excelStyles } from './excelStyles';
 import type { PlacedBet } from '@/types/bet';
 
 interface ExcelExportOptions {
@@ -12,6 +13,23 @@ interface ExcelExportOptions {
   };
 }
 
+function applyStyles(sheet: XLSX.WorkSheet, ranges: { [key: string]: XLSX.CellStyle }) {
+  if (!sheet['!styles']) sheet['!styles'] = {};
+  Object.entries(ranges).forEach(([range, style]) => {
+    const cells = XLSX.utils.decode_range(range);
+    for (let row = cells.s.r; row <= cells.e.r; row++) {
+      for (let col = cells.s.c; col <= cells.e.c; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: row, c: col });
+        sheet['!styles'][cellRef] = style;
+      }
+    }
+  });
+}
+
+function setColumnWidths(sheet: XLSX.WorkSheet, widths: number[]) {
+  sheet['!cols'] = widths.map(w => ({ wch: w }));
+}
+
 export function generateExcelWorkbook(bets: PlacedBet[], options: ExcelExportOptions = {}) {
   const workbook = XLSX.utils.book_new();
 
@@ -21,10 +39,19 @@ export function generateExcelWorkbook(bets: PlacedBet[], options: ExcelExportOpt
     const overviewData = [
       ['Overall Performance'],
       ['Total Bets', 'Win Rate', 'Total Profit', 'ROI'],
-      [stats.totalBets, `${stats.winRate.toFixed(2)}%`, stats.totalProfit, `${stats.roi.toFixed(2)}%`]
+      [stats.totalBets, stats.winRate / 100, stats.totalProfit, stats.roi / 100]
     ];
     
     const overviewSheet = XLSX.utils.aoa_to_sheet(overviewData);
+    applyStyles(overviewSheet, {
+      'A1:D1': excelStyles.subHeaders,
+      'A2:D2': excelStyles.headers,
+      'B3:B3': excelStyles.percentageCell,
+      'C3:C3': excelStyles.profitCell(stats.totalProfit),
+      'D3:D3': excelStyles.percentageCell
+    });
+    
+    setColumnWidths(overviewSheet, [15, 15, 15, 15]);
     XLSX.utils.book_append_sheet(workbook, overviewSheet, 'Overview');
   }
 
@@ -39,11 +66,19 @@ export function generateExcelWorkbook(bets: PlacedBet[], options: ExcelExportOpt
         stat.bets,
         stat.wonBets,
         stat.profit,
-        `${stat.roi.toFixed(2)}%`
+        stat.roi / 100
       ])
     ];
     
     const bookmakerSheet = XLSX.utils.aoa_to_sheet(bookmakerData);
+    applyStyles(bookmakerSheet, {
+      'A1:E1': excelStyles.subHeaders,
+      'A2:E2': excelStyles.headers,
+      'D3:D' + (bookmakerData.length): excelStyles.currencyCell,
+      'E3:E' + (bookmakerData.length): excelStyles.percentageCell
+    });
+    
+    setColumnWidths(bookmakerSheet, [20, 12, 12, 15, 12]);
     XLSX.utils.book_append_sheet(workbook, bookmakerSheet, 'Bookmakers');
   }
 
@@ -58,11 +93,19 @@ export function generateExcelWorkbook(bets: PlacedBet[], options: ExcelExportOpt
         stat.bets,
         stat.wonBets,
         stat.profit,
-        `${stat.winRate.toFixed(2)}%`
+        stat.winRate / 100
       ])
     ];
     
     const monthlySheet = XLSX.utils.aoa_to_sheet(monthlyData);
+    applyStyles(monthlySheet, {
+      'A1:E1': excelStyles.subHeaders,
+      'A2:E2': excelStyles.headers,
+      'D3:D' + (monthlyData.length): excelStyles.currencyCell,
+      'E3:E' + (monthlyData.length): excelStyles.percentageCell
+    });
+    
+    setColumnWidths(monthlySheet, [15, 12, 12, 15, 12]);
     XLSX.utils.book_append_sheet(workbook, monthlySheet, 'Monthly');
   }
 
@@ -84,17 +127,33 @@ export function generateExcelWorkbook(bets: PlacedBet[], options: ExcelExportOpt
   ];
 
   const betSheet = XLSX.utils.aoa_to_sheet(betData);
+  applyStyles(betSheet, {
+    'A1:H1': excelStyles.subHeaders,
+    'A2:H2': excelStyles.headers,
+    'A3:A' + (betData.length): excelStyles.dateCell,
+    'D3:D' + (betData.length): excelStyles.centerCell,
+    'E3:E' + (betData.length): excelStyles.currencyCell,
+    'F3:F' + (betData.length): excelStyles.centerCell,
+    'G3:G' + (betData.length): { 
+      ...excelStyles.currencyCell,
+      font: bet => ({
+        color: { rgb: bet[6] >= 0 ? '16A34A' : 'DC2626' }
+      })
+    }
+  });
   
-  // Add column widths
-  const colWidths = [{ wch: 12 }, { wch: 30 }, { wch: 15 }, { wch: 8 }, 
-                     { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 40 }];
-  betSheet['!cols'] = colWidths;
-  
+  setColumnWidths(betSheet, [12, 30, 15, 8, 10, 10, 12, 40]);
   XLSX.utils.book_append_sheet(workbook, betSheet, 'Bet History');
 
   return workbook;
 }
 
 export function downloadExcel(workbook: XLSX.WorkBook, filename: string) {
-  XLSX.writeFile(workbook, filename);
+  try {
+    XLSX.writeFile(workbook, filename);
+    return true;
+  } catch (error) {
+    console.error('Error downloading Excel file:', error);
+    return false;
+  }
 }
