@@ -5,8 +5,10 @@ import { LeagueFilter } from '@/components/leagues/league-filter';
 import { LeagueStatsCard } from '@/components/leagues/league-stats-card';
 import { LeaguePerformanceChart } from '@/components/leagues/league-performance-chart';
 import { LeagueMatchesTable } from '@/components/leagues/league-matches-table';
+import { LeaguePredictionsTable } from '@/components/leagues/league-predictions-table';
 import { LeaguePredictionsSummary } from '@/components/leagues/league-predictions-summary';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { Pagination } from '@/components/ui/pagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -28,6 +30,12 @@ interface DateRange {
   to: Date;
 }
 
+interface PaginationState {
+  page: number;
+  totalPages: number;
+  total: number;
+}
+
 export default function LeaguesPage() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<string>();
@@ -37,6 +45,12 @@ export default function LeaguesPage() {
   const [stats, setStats] = useState<any>();
   const [performanceData, setPerformanceData] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    totalPages: 1,
+    total: 0
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -47,7 +61,7 @@ export default function LeaguesPage() {
     if (selectedLeague) {
       fetchLeagueData();
     }
-  }, [selectedLeague, dateRange]);
+  }, [selectedLeague, dateRange, pagination.page]);
 
   const fetchLeagues = async () => {
     try {
@@ -74,29 +88,37 @@ export default function LeaguesPage() {
     setIsLoading(true);
     try {
       const dateParams = dateRange 
-        ? `?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}` 
+        ? `&from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}` 
         : '';
 
       // Fetch all data in parallel
-      const [statsRes, performanceRes, matchesRes] = await Promise.all([
+      const [statsRes, performanceRes, matchesRes, predictionsRes] = await Promise.all([
         fetch(`/api/leagues/${selectedLeague}/stats${dateParams}`),
         fetch(`/api/leagues/${selectedLeague}/performance${dateParams}`),
-        fetch(`/api/leagues/${selectedLeague}/matches${dateParams}`)
+        fetch(`/api/leagues/${selectedLeague}/matches${dateParams}`),
+        fetch(`/api/leagues/${selectedLeague}/predictions?page=${pagination.page}&limit=10${dateParams}`)
       ]);
 
-      if (!statsRes.ok || !performanceRes.ok || !matchesRes.ok) {
+      if (!statsRes.ok || !performanceRes.ok || !matchesRes.ok || !predictionsRes.ok) {
         throw new Error('Failed to fetch league data');
       }
 
-      const [statsData, performanceData, matchesData] = await Promise.all([
+      const [statsData, performanceData, matchesData, predictionsData] = await Promise.all([
         statsRes.json(),
         performanceRes.json(),
-        matchesRes.json()
+        matchesRes.json(),
+        predictionsRes.json()
       ]);
 
       setStats(statsData);
       setPerformanceData(performanceData);
       setMatches(matchesData);
+      setPredictions(predictionsData.predictions);
+      setPagination({
+        page: predictionsData.pagination.page,
+        totalPages: predictionsData.pagination.totalPages,
+        total: predictionsData.pagination.total
+      });
       setError(undefined);
     } catch (err) {
       setError('Failed to load league data');
@@ -108,6 +130,10 @@ export default function LeaguesPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setPagination(prev => ({ ...prev, page }));
   };
 
   if (error) {
@@ -171,8 +197,14 @@ export default function LeaguesPage() {
             </TabsContent>
             <TabsContent value="predictions">
               <Card className="p-4">
-                {/* Will implement predictions table in next iteration */}
-                <p>Coming soon...</p>
+                <LeaguePredictionsTable predictions={predictions} />
+                <div className="mt-4">
+                  <Pagination
+                    currentPage={pagination.page}
+                    totalPages={pagination.totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
               </Card>
             </TabsContent>
             <TabsContent value="teams">
