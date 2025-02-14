@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { useSocket } from '@/hooks/useSocket';
 import { SOCKET_EVENTS } from '@/lib/socket/events';
-import type { LiveScore, LiveMatchStats, MatchStatus } from '@/types/match';
+import MatchTimeline from './MatchTimeline';
+import type { LiveScore, LiveMatchStats, MatchStatus, TimelineEvent } from '@/types/match';
 
 interface LiveMatchCardProps {
   matchId: string;
@@ -11,6 +13,7 @@ interface LiveMatchCardProps {
   awayTeam: string;
   initialScore?: LiveScore;
   initialStatus?: MatchStatus;
+  initialEvents?: TimelineEvent[];
 }
 
 export default function LiveMatchCard({
@@ -18,7 +21,8 @@ export default function LiveMatchCard({
   homeTeam,
   awayTeam,
   initialScore = { home: 0, away: 0 },
-  initialStatus = 'NOT_STARTED'
+  initialStatus = 'NOT_STARTED',
+  initialEvents = []
 }: LiveMatchCardProps) {
   const [score, setScore] = useState<LiveScore>(initialScore);
   const [status, setStatus] = useState<MatchStatus>(initialStatus);
@@ -60,6 +64,9 @@ export default function LiveMatchCard({
     }
   };
 
+  const isLive = status === 'FIRST_HALF' || status === 'SECOND_HALF' || 
+                 status === 'EXTRA_TIME' || status === 'PENALTIES';
+
   return (
     <Card className="w-full max-w-md">
       <CardContent className="p-4">
@@ -67,9 +74,14 @@ export default function LiveMatchCard({
           <Badge variant={getStatusColor(status)}>
             {status.replace(/_/g, ' ')}
           </Badge>
+          {isLive && (
+            <Badge variant="outline" className="animate-pulse">
+              LIVE
+            </Badge>
+          )}
         </div>
         
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-4">
           <div className="text-left flex-1">
             <p className="font-semibold text-lg truncate">{homeTeam}</p>
             <p className="text-3xl font-bold">{score.home}</p>
@@ -84,6 +96,13 @@ export default function LiveMatchCard({
             <p className="text-3xl font-bold">{score.away}</p>
           </div>
         </div>
+
+        <Separator className="my-4" />
+        
+        <MatchTimeline 
+          matchId={matchId} 
+          initialEvents={initialEvents} 
+        />
       </CardContent>
     </Card>
   );
