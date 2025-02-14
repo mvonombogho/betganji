@@ -32,3 +32,21 @@ export type MatchStatus =
   | 'FINISHED'
   | 'POSTPONED'
   | 'CANCELLED';
+
+export type TimelineEventType =
+  | 'GOAL'
+  | 'YELLOW_CARD'
+  | 'RED_CARD'
+  | 'SUBSTITUTION'
+  | 'PENALTY_MISSED'
+  | 'PENALTY_SCORED'
+  | 'VAR';
+
+export interface TimelineEvent {
+  id: string;
+  type: TimelineEventType;
+  minute: number;
+  team: 'home' | 'away';
+  playerName: string;
+  additionalInfo?: string;
+}
