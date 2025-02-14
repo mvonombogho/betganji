@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSocket } from '@/hooks/useSocket';
 import { SOCKET_EVENTS } from '@/lib/socket/events';
 import MatchTimeline from './MatchTimeline';
+import MatchStats from './MatchStats';
 import type { LiveScore, LiveMatchStats, MatchStatus, TimelineEvent } from '@/types/match';
 
 interface LiveMatchCardProps {
@@ -14,6 +16,7 @@ interface LiveMatchCardProps {
   initialScore?: LiveScore;
   initialStatus?: MatchStatus;
   initialEvents?: TimelineEvent[];
+  initialStats?: LiveMatchStats;
 }
 
 export default function LiveMatchCard({
@@ -22,7 +25,8 @@ export default function LiveMatchCard({
   awayTeam,
   initialScore = { home: 0, away: 0 },
   initialStatus = 'NOT_STARTED',
-  initialEvents = []
+  initialEvents = [],
+  initialStats
 }: LiveMatchCardProps) {
   const [score, setScore] = useState<LiveScore>(initialScore);
   const [status, setStatus] = useState<MatchStatus>(initialStatus);
@@ -99,10 +103,24 @@ export default function LiveMatchCard({
 
         <Separator className="my-4" />
         
-        <MatchTimeline 
-          matchId={matchId} 
-          initialEvents={initialEvents} 
-        />
+        <Tabs defaultValue="timeline" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="stats">Stats</TabsTrigger>
+          </TabsList>
+          <TabsContent value="timeline">
+            <MatchTimeline 
+              matchId={matchId} 
+              initialEvents={initialEvents} 
+            />
+          </TabsContent>
+          <TabsContent value="stats">
+            <MatchStats 
+              matchId={matchId} 
+              initialStats={initialStats} 
+            />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
