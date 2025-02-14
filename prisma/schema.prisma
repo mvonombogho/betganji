@@ -7,20 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Existing Auth Models
 model User {
-  id            String    @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String       @unique
   emailVerified DateTime?
-  password      String?
+  password      String
   image         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  predictions   Prediction[]
+  bets          Bet[]
   accounts      Account[]
   sessions      Session[]
-  bankroll      Bankroll?
-  bets          PlacedBet[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+
+  @@index([email])
 }
 
 model Account {
@@ -29,17 +30,17 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -48,77 +49,129 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-// Betting Models
-model Bankroll {
-  id             String           @id @default(cuid())
-  userId         String           @unique
-  user           User             @relation(fields: [userId], references: [id])
-  initialCapital Float
-  currentBalance Float
-  currency       String           @default("USD")
-  maxStakePerBet Float
-  maxStakePerDay Float
-  stakeUnit      String           @default("fixed") // "fixed" or "percentage"
-  stopLoss       Float?
-  targetProfit   Float?
-  bettingSites   BettingSite[]
-  history        BankrollHistory[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-}
-
-model BettingSite {
-  id             String   @id @default(cuid())
-  bankrollId     String
-  bankroll       Bankroll @relation(fields: [bankrollId], references: [id])
-  name           String
-  currentBalance Float
-  totalDeposited Float
-  totalWithdrawn Float
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@unique([bankrollId, name])
-}
-
-model PlacedBet {
-  id             String    @id @default(cuid())
-  userId         String
-  user           User      @relation(fields: [userId], references: [id])
-  matchId        String
-  type           String    // single, multiple, system
-  selection      String
-  odds           Float
-  stake          Float
-  potentialWin   Float
-  status         String    // pending, won, lost, void
-  bettingSite    String
-  reasoning      String    @db.Text
-  confidenceLevel Int
-  result         String?
-  profitLoss     Float?
-  placedAt       DateTime  @default(now())
-  settledAt      DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-}
-
-model BankrollHistory {
+model League {
   id          String   @id @default(cuid())
-  bankrollId  String
-  bankroll    Bankroll @relation(fields: [bankrollId], references: [id])
-  balance     Float
-  change      Float
-  reason      String
+  name        String
+  country     String
+  logo        String?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  matches     Match[]
+  teams       Team[]
+
+  @@index([country])
+  @@index([name])
+}
+
+model Team {
+  id           String   @id @default(cuid())
+  name         String
+  country      String
+  logo         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  homeMatches  Match[]  @relation("HomeTeam")
+  awayMatches  Match[]  @relation("AwayTeam")
+  leagues      League[]
+
+  @@index([name])
+  @@index([country])
+}
+
+model Match {
+  id          String       @id @default(cuid())
+  datetime    DateTime
+  status      MatchStatus
+  homeTeamId  String
+  awayTeamId  String
+  leagueId    String
+  homeScore   Int?
+  awayScore   Int?
+  result      String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  homeTeam    Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam    Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  league      League       @relation(fields: [leagueId], references: [id])
+  predictions Prediction[]
+  odds        Odds[]
+
+  @@index([datetime])
+  @@index([status])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([leagueId])
+  @@index([datetime, status, leagueId])
+}
+
+model Prediction {
+  id          String    @id @default(cuid())
+  userId      String
+  matchId     String
+  result      String
+  confidence  Float
+  reasoning   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id])
+  match       Match     @relation(fields: [matchId], references: [id])
+  bet         Bet?
+
+  @@index([userId])
+  @@index([matchId])
+  @@index([result])
+  @@index([createdAt])
+  @@index([userId, matchId])
+}
+
+model Odds {
+  id        String   @id @default(cuid())
+  matchId   String
+  provider  String
+  homeWin   Float
+  draw      Float
+  awayWin   Float
+  timestamp DateTime @default(now())
+  match     Match    @relation(fields: [matchId], references: [id])
+
+  @@index([matchId])
+  @@index([provider])
+  @@index([timestamp])
+}
+
+model Bet {
+  id           String     @id @default(cuid())
+  userId       String
+  predictionId String     @unique
+  stake        Float
+  odds         Float
+  status       BetStatus
+  profit       Float?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  user         User       @relation(fields: [userId], references: [id])
+  prediction   Prediction @relation(fields: [predictionId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+  CANCELLED
+}
+
+enum BetStatus {
+  PENDING
+  WON
+  LOST
+  VOID
+  CANCELLED
 }
