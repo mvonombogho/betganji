@@ -1,111 +1,84 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth/auth"
-import { BettingService } from "@/lib/data/services/betting-service"
-import { db } from "@/lib/db"
-import { z } from "zod"
-
-const bettingService = new BettingService()
-
-const placeBetSchema = z.object({
-  matchId: z.string(),
-  type: z.enum(["single", "multiple", "system"]),
-  selection: z.string(),
-  odds: z.number().positive(),
-  stake: z.number().positive(),
-  bettingSite: z.string(),
-  reasoning: z.string(),
-  confidenceLevel: z.number().min(1).max(10),
-})
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-
-    if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 })
+    const session = await getServerSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const json = await req.json()
-    const data = placeBetSchema.parse(json)
+    const data = await req.json();
+    const { selections, stake } = data;
 
-    // Check if user has a bankroll
-    const bankroll = await db.bankroll.findUnique({
-      where: { userId: session.user.id }
-    })
+    // Calculate total odds and potential win
+    const totalOdds = selections.reduce((acc: number, bet: any) => acc * bet.odds, 1);
+    const potentialWin = totalOdds * stake;
 
-    if (!bankroll) {
-      return new NextResponse(
-        "Please set up your bankroll first",
-        { status: 400 }
-      )
-    }
+    // Create multi-bet with selections
+    const multiBet = await prisma.multiBet.create({
+      data: {
+        userId: session.user.id,
+        totalOdds,
+        stake,
+        potentialWin,
+        status: 'pending',
+        selections: {
+          create: selections.map((selection: any) => ({
+            matchId: selection.matchId,
+            selection: selection.selection,
+            odds: selection.odds,
+            status: 'pending'
+          }))
+        }
+      },
+      include: {
+        selections: true
+      }
+    });
 
-    // Calculate potential win
-    const potentialWin = data.stake * data.odds
-
-    const bet = await bettingService.placeBet({
-      userId: session.user.id,
-      ...data,
-      potentialWin,
-      status: "pending"
-    })
-
-    return NextResponse.json(bet)
+    return NextResponse.json(multiBet);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return new NextResponse("Invalid request data", { status: 422 })
-    }
-
-    console.error("[BETS_POST]", error)
-    return new NextResponse(
-      error instanceof Error ? error.message : "Internal error",
+    console.error('Error creating bet:', error);
+    return NextResponse.json(
+      { error: 'Failed to create bet' },
       { status: 500 }
-    )
+    );
   }
 }
 
 export async function GET(req: Request) {
   try {
-    const session = await auth()
-
-    if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 })
+    const session = await getServerSession();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url)
-    const status = searchParams.get("status")
-    const limit = parseInt(searchParams.get("limit") || "10")
-    const page = parseInt(searchParams.get("page") || "1")
-    const skip = (page - 1) * limit
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status');
 
     const where = {
       userId: session.user.id,
       ...(status ? { status } : {})
-    }
+    };
 
-    const [bets, total] = await Promise.all([
-      db.placedBet.findMany({
-        where,
-        orderBy: {
-          placedAt: 'desc'
-        },
-        take: limit,
-        skip
-      }),
-      db.placedBet.count({ where })
-    ])
-
-    return NextResponse.json({
-      bets,
-      pagination: {
-        total,
-        pages: Math.ceil(total / limit),
-        current: page,
-        limit
+    const bets = await prisma.multiBet.findMany({
+      where,
+      include: {
+        selections: true
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
-    })
+    });
+
+    return NextResponse.json(bets);
   } catch (error) {
-    console.error("[BETS_GET]", error)
-    return new NextResponse("Internal error", { status: 500 })
+    console.error('Error fetching bets:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch bets' },
+      { status: 500 }
+    );
   }
 }
