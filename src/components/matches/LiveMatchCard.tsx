@@ -3,7 +3,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Bell, BellOff } from 'lucide-react';
 import { useSocket } from '@/hooks/useSocket';
+import { useNotifications } from '@/hooks/useNotifications';
 import { SOCKET_EVENTS } from '@/lib/socket/events';
 import MatchTimeline from './MatchTimeline';
 import MatchStats from './MatchStats';
@@ -34,7 +37,12 @@ export default function LiveMatchCard({
 }: LiveMatchCardProps) {
   const [score, setScore] = useState<LiveScore>(initialScore);
   const [status, setStatus] = useState<MatchStatus>(initialStatus);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  
   const { subscribe } = useSocket();
+  const { supported, permission, requestPermission, notificationService } = useNotifications();
+
+  const matchDetails = `${homeTeam} vs ${awayTeam}`;
 
   useEffect(() => {
     const unsubscribeScore = subscribe(SOCKET_EVENTS.MATCH_SCORE, (data) => {
@@ -49,11 +57,50 @@ export default function LiveMatchCard({
       }
     });
 
+    const unsubscribeTimeline = subscribe(SOCKET_EVENTS.MATCH_TIMELINE, async (data) => {
+      if (data.matchId === matchId && notificationsEnabled) {
+        await notificationService.notifyMatchEvent(data.event, matchDetails);
+      }
+    });
+
+    const unsubscribeOdds = subscribe(SOCKET_EVENTS.ODDS_UPDATE, async (data) => {
+      if (data.matchId === matchId && notificationsEnabled && data.significant) {
+        await notificationService.notifyOddsChange(
+          matchDetails,
+          data.type,
+          data.oldOdds,
+          data.newOdds
+        );
+      }
+    });
+
     return () => {
       unsubscribeScore();
       unsubscribeStatus();
+      unsubscribeTimeline();
+      unsubscribeOdds();
     };
-  }, [matchId, subscribe]);
+  }, [matchId, subscribe, notificationsEnabled, matchDetails, notificationService]);
+
+  const toggleNotifications = async () => {
+    if (!supported) return;
+
+    if (!notificationsEnabled) {
+      const granted = await requestPermission();
+      if (granted) {
+        setNotificationsEnabled(true);
+        await notificationService.notify(
+          `🔔 Match Notifications Enabled`,
+          {
+            body: `You'll receive notifications for ${matchDetails}`,
+            icon: '/favicon.ico'
+          }
+        );
+      }
+    } else {
+      setNotificationsEnabled(false);
+    }
+  };
 
   const getStatusColor = (status: MatchStatus) => {
     switch (status) {
@@ -79,13 +126,31 @@ export default function LiveMatchCard({
     <Card className="w-full max-w-md">
       <CardContent className="p-4">
         <div className="flex justify-between items-center mb-4">
-          <Badge variant={getStatusColor(status)}>
-            {status.replace(/_/g, ' ')}
-          </Badge>
-          {isLive && (
-            <Badge variant="outline" className="animate-pulse">
-              LIVE
+          <div className="flex items-center gap-2">
+            <Badge variant={getStatusColor(status)}>
+              {status.replace(/_/g, ' ')}
             </Badge>
+            {isLive && (
+              <Badge variant="outline" className="animate-pulse">
+                LIVE
+              </Badge>
+            )}
+          </div>
+          
+          {supported && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleNotifications}
+              disabled={permission === 'denied'}
+              title={permission === 'denied' ? 'Notifications blocked' : 'Toggle notifications'}
+            >
+              {notificationsEnabled ? (
+                <Bell className="h-4 w-4" />
+              ) : (
+                <BellOff className="h-4 w-4" />
+              )}
+            </Button>
           )}
         </div>
         
