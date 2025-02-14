@@ -1,5 +1,6 @@
 import LiveMatchCard from '@/components/matches/LiveMatchCard';
 import type { TimelineEvent, LiveMatchStats } from '@/types/match';
+import type { LiveOdds } from '@/types/odds';
 
 const demoEvents: TimelineEvent[] = [
   {
@@ -27,6 +28,33 @@ const demoStats: LiveMatchStats = {
   corners: { home: 4, away: 2 }
 };
 
+const demoOdds: LiveOdds = {
+  matchId: '1',
+  provider: 'Betfair',
+  home: 2.10,
+  draw: 3.40,
+  away: 3.75,
+  timestamp: new Date().toISOString(),
+  status: 'active',
+  movements: {
+    home: {
+      previous: 2.05,
+      current: 2.10,
+      trend: 'up'
+    },
+    draw: {
+      previous: 3.40,
+      current: 3.40,
+      trend: 'stable'
+    },
+    away: {
+      previous: 3.80,
+      current: 3.75,
+      trend: 'down'
+    }
+  }
+};
+
 export default function LiveMatchPage({ params }: { params: { id: string } }) {
   return (
     <div className="container mx-auto py-8">
@@ -38,6 +66,7 @@ export default function LiveMatchPage({ params }: { params: { id: string } }) {
         initialScore={{ home: 1, away: 0 }}
         initialEvents={demoEvents}
         initialStats={demoStats}
+        initialOdds={demoOdds}
       />
     </div>
   );
