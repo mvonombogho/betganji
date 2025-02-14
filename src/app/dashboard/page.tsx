@@ -3,8 +3,8 @@ import { DashboardGrid } from '@/components/dashboard/dashboard-grid';
 import { DashboardSettings } from '@/components/dashboard/dashboard-settings';
 import { auth } from '@/lib/auth';
 import { getUserDashboardSettings, updateUserDashboardSettings } from '@/lib/data/services/user-service';
+import { useToast } from '@/components/ui/use-toast';
 
-// Default dashboard layouts
 const defaultLayouts = [
   {
     id: 'quick-stats',
@@ -60,11 +60,24 @@ async function DashboardContent() {
   const session = await auth();
   if (!session?.user) return null;
 
+  const { toast } = useToast();
   const userSettings = await getUserDashboardSettings(session.user.id);
   const layouts = userSettings?.layouts || defaultLayouts;
 
   const handleLayoutChange = async (newLayouts: any[]) => {
-    await updateUserDashboardSettings(session.user.id, { layouts: newLayouts });
+    try {
+      await updateUserDashboardSettings(session.user.id, { layouts: newLayouts });
+      toast({
+        title: 'Dashboard updated',
+        description: 'Your dashboard layout has been saved.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to save dashboard layout.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -74,7 +87,10 @@ async function DashboardContent() {
         <DashboardSettings layouts={layouts} onLayoutChange={handleLayoutChange} />
       </div>
 
-      <DashboardGrid layouts={layouts} />
+      <DashboardGrid 
+        layouts={layouts} 
+        onLayoutChange={handleLayoutChange} 
+      />
     </div>
   );
 }
