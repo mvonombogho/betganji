@@ -2,8 +2,10 @@ import React from 'react';
 import { Metadata } from 'next';
 import { getROIAnalysis } from '@/lib/data/services/analytics-service';
 import { getStreakAnalysis } from '@/lib/data/services/streak-service';
+import { getPerformancePatterns } from '@/lib/data/services/patterns-service';
 import ROIAnalysis from '@/components/analytics/roi-analysis';
 import StreakAnalysis from '@/components/analytics/streak-analysis';
+import PerformancePatterns from '@/components/analytics/performance-patterns';
 import { auth } from '@/lib/auth';
 import { addMonths } from 'date-fns';
 
@@ -19,9 +21,10 @@ export default async function AnalyticsPage() {
   const endDate = new Date();
   const startDate = addMonths(endDate, -3); // Last 3 months
 
-  const [roiData, streakData] = await Promise.all([
+  const [roiData, streakData, patternsData] = await Promise.all([
     getROIAnalysis(session.user.id, startDate, endDate),
-    getStreakAnalysis(session.user.id)
+    getStreakAnalysis(session.user.id),
+    getPerformancePatterns(session.user.id)
   ]);
 
   return (
@@ -34,6 +37,8 @@ export default async function AnalyticsPage() {
         <ROIAnalysis data={roiData} />
         <StreakAnalysis data={streakData} />
       </div>
+
+      <PerformancePatterns data={patternsData} />
     </div>
   );
 }
