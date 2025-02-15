@@ -1,0 +1,104 @@
+openapi: 3.0.0
+info:
+  title: BetGanji API
+  version: 1.0.0
+  description: API documentation for the BetGanji soccer prediction platform
+
+servers:
+  - url: /api
+    description: API base URL
+
+paths:
+  /matches:
+    get:
+      summary: Get matches
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Date to fetch matches for (YYYY-MM-DD)
+      responses:
+        '200':
+          description: List of matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Match'
+
+  /predictions:
+    post:
+      summary: Create prediction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PredictionInput'
+      responses:
+        '201':
+          description: Prediction created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prediction'
+
+components:
+  schemas:
+    Match:
+      type: object
+      properties:
+        id:
+          type: string
+        homeTeam:
+          $ref: '#/components/schemas/Team'
+        awayTeam:
+          $ref: '#/components/schemas/Team'
+        datetime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [SCHEDULED, LIVE, FINISHED, CANCELLED]
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    PredictionInput:
+      type: object
+      required:
+        - matchId
+        - result
+      properties:
+        matchId:
+          type: string
+        result:
+          type: string
+          enum: [HOME_WIN, DRAW, AWAY_WIN]
+
+    Prediction:
+      type: object
+      properties:
+        id:
+          type: string
+        match:
+          $ref: '#/components/schemas/Match'
+        result:
+          type: string
+          enum: [HOME_WIN, DRAW, AWAY_WIN]
+        confidence:
+          type: number
+          format: float
+        insights:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
