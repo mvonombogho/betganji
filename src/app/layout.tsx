@@ -1,41 +1,36 @@
-import React from 'react';
-import { Inter } from 'next/font/google';
-import { ThemeProvider } from '@/components/theme/theme-provider';
-import { Header } from '@/components/layout/header';
-import { Sidebar } from '@/components/layout/sidebar';
-import { cn } from '@/lib/utils';
-
-const inter = Inter({ subsets: ['latin'] });
+import { Suspense } from 'react'
+import { Analytics } from '@/components/analytics'
+import { PerformanceMonitor } from '@/components/performance-monitor'
 
 export default function RootLayout({
-  children,
+  children
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head />
-      <body className={cn(
-        'min-h-screen bg-background font-sans antialiased',
-        inter.className
-      )}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <div className="flex min-h-screen">
-            <Sidebar className="hidden md:flex" />
-            <div className="flex-1 flex flex-col">
-              <Header />
-              <main className="flex-1">
-                {children}
-              </main>
-            </div>
-          </div>
-        </ThemeProvider>
+    <html lang="en">
+      <head>
+        {/* Preload critical assets */}
+        <link
+          rel="preload"
+          href="/fonts/inter-var.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preconnect"
+          href="https://api.football-data.org"
+          crossOrigin="anonymous"
+        />
+      </head>
+      <body>
+        <Suspense fallback={null}>
+          <PerformanceMonitor />
+          <Analytics />
+        </Suspense>
+        {children}
       </body>
     </html>
-  );
+  )
 }

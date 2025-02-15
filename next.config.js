@@ -1,29 +1,67 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['api.football-data.org', 'media.api-sports.io'],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    formats: ['image/webp'],
-    minimumCacheTTL: 60,
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**.football-data.org',
-        pathname: '/images/**',
-      },
-      {
-        protocol: 'https',
-        hostname: '**.api-sports.io',
-        pathname: '/media/**',
-      },
-    ],
+    domains: ['api.football-data.org'],
+    formats: ['image/avif', 'image/webp']
   },
   experimental: {
     optimizeCss: true,
-    optimizePackageImports: ['@headlessui/react', '@heroicons/react', 'date-fns'],
+    optimizePackageImports: ['@heroicons/react', 'date-fns'],
   },
-  compress: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production'
+  },
+  headers: async () => [
+    {
+      source: '/:path*',
+      headers: [
+        {
+          key: 'Cache-Control',
+          value: 'public, max-age=31536000, immutable'
+        }
+      ]
+    }
+  ],
+  webpack: (config, { dev, isServer }) => {
+    // Optimize bundle size
+    if (!dev && !isServer) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        minSize: 20000,
+        maxSize: 244000,
+        minChunks: 1,
+        maxAsyncRequests: 30,
+        maxInitialRequests: 30,
+        cacheGroups: {
+          defaultVendors: false,
+          framework: {
+            chunks: 'all',
+            name: 'framework',
+            test: /[\\/]node_modules[\\/](@react|react|next|@next)[\\/]/,
+            priority: 40,
+            enforce: true
+          },
+          lib: {
+            test(module) {
+              return (
+                module.size() > 160000 &&
+                /node_modules[\\/]/.test(module.identifier())
+              )
+            },
+            name(module) {
+              const hash = crypto.createHash('sha1')
+              hash.update(module.identifier())
+              return hash.digest('hex').substring(0, 8)
+            },
+            priority: 30,
+            minChunks: 1,
+            reuseExistingChunk: true
+          }
+        }
+      }
+    }
+    return config
+  }
 }
 
 module.exports = nextConfig
