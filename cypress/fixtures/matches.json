@@ -1,0 +1,114 @@
+{
+  "matches": [
+    {
+      "id": "match_1",
+      "homeTeam": {
+        "name": "Manchester United",
+        "recentForm": [
+          { "result": "W", "opponent": "Arsenal" },
+          { "result": "D", "opponent": "Liverpool" },
+          { "result": "W", "opponent": "Newcastle" },
+          { "result": "L", "opponent": "Manchester City" },
+          { "result": "W", "opponent": "Tottenham" }
+        ],
+        "stats": {
+          "goalsScored": 2.1,
+          "goalsConceded": 1.2,
+          "cleanSheets": 8,
+          "formRating": 7.5
+        }
+      },
+      "awayTeam": {
+        "name": "Chelsea",
+        "recentForm": [
+          { "result": "L", "opponent": "Arsenal" },
+          { "result": "W", "opponent": "Brighton" },
+          { "result": "W", "opponent": "Brentford" },
+          { "result": "D", "opponent": "Newcastle" },
+          { "result": "L", "opponent": "Manchester City" }
+        ],
+        "stats": {
+          "goalsScored": 1.8,
+          "goalsConceded": 1.4,
+          "cleanSheets": 6,
+          "formRating": 6.8
+        }
+      },
+      "competition": {
+        "name": "Premier League"
+      },
+      "datetime": "2025-02-20T15:00:00Z",
+      "h2h": [
+        {
+          "homeTeam": "Manchester United",
+          "awayTeam": "Chelsea",
+          "homeScore": 2,
+          "awayScore": 1,
+          "date": "2024-12-01"
+        },
+        {
+          "homeTeam": "Chelsea",
+          "awayTeam": "Manchester United",
+          "homeScore": 0,
+          "awayScore": 2,
+          "date": "2024-05-15"
+        }
+      ]
+    },
+    {
+      "id": "match_2",
+      "homeTeam": {
+        "name": "Arsenal",
+        "recentForm": [
+          { "result": "W", "opponent": "Chelsea" },
+          { "result": "W", "opponent": "Manchester United" },
+          { "result": "L", "opponent": "Liverpool" },
+          { "result": "W", "opponent": "Tottenham" },
+          { "result": "D", "opponent": "Newcastle" }
+        ],
+        "stats": {
+          "goalsScored": 2.3,
+          "goalsConceded": 0.9,
+          "cleanSheets": 10,
+          "formRating": 8.1
+        }
+      },
+      "awayTeam": {
+        "name": "Liverpool",
+        "recentForm": [
+          { "result": "W", "opponent": "Arsenal" },
+          { "result": "W", "opponent": "Manchester City" },
+          { "result": "W", "opponent": "Tottenham" },
+          { "result": "W", "opponent": "Chelsea" },
+          { "result": "D", "opponent": "Manchester United" }
+        ],
+        "stats": {
+          "goalsScored": 2.5,
+          "goalsConceded": 1.1,
+          "cleanSheets": 9,
+          "formRating": 8.4
+        }
+      },
+      "competition": {
+        "name": "Premier League"
+      },
+      "datetime": "2025-02-21T19:45:00Z",
+      "h2h": [
+        {
+          "homeTeam": "Arsenal",
+          "awayTeam": "Liverpool",
+          "homeScore": 1,
+          "awayScore": 2,
+          "date": "2024-11-15"
+        },
+        {
+          "homeTeam": "Liverpool",
+          "awayTeam": "Arsenal",
+          "homeScore": 3,
+          "awayScore": 1,
+          "date": "2024-04-20"
+        }
+      ]
+    }
+  ]
+}
