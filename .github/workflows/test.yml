@@ -12,6 +12,7 @@ jobs:
 
     env:
       DATABASE_URL: "postgresql://test:test@localhost:5432/test_db"
+      PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
 
     services:
       postgres:
@@ -22,7 +23,7 @@ jobs:
           POSTGRES_DB: test_db
         ports:
           - 5432:5432
-        options: >
+        options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
@@ -66,8 +67,10 @@ jobs:
       - name: Run unit and integration tests
         run: pnpm test
 
-      - name: Run E2E tests
-        run: pnpm test:e2e
+      - name: Run E2E tests with Percy
+        run: pnpm percy exec -- cypress run
+        env:
+          PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
 
       - name: Upload test coverage
         uses: actions/upload-artifact@v3
