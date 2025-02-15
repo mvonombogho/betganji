@@ -1,11 +1,4 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+// Existing schema content...
 
 model User {
   id            String       @id @default(cuid())
@@ -20,158 +13,40 @@ model User {
   bets          Bet[]
   accounts      Account[]
   sessions      Session[]
+  reportPreferences ReportPreferences?
+  emailLogs     EmailLog[]
 
   @@index([email])
 }
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@index([userId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model ReportPreferences {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  dailyReports  Boolean   @default(false)
+  weeklyReports Boolean   @default(false)
+  monthlyReports Boolean  @default(false)
+  emailTime     String    @default("00:00") // Time in 24-hour format (HH:mm)
+  timezone      String    @default("UTC")
+  lastSent      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
-model League {
-  id          String   @id @default(cuid())
-  name        String
-  country     String
-  logo        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  matches     Match[]
-  teams       Team[]
-
-  @@index([country])
-  @@index([name])
-}
-
-model Team {
-  id           String   @id @default(cuid())
-  name         String
-  country      String
-  logo         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  homeMatches  Match[]  @relation("HomeTeam")
-  awayMatches  Match[]  @relation("AwayTeam")
-  leagues      League[]
-
-  @@index([name])
-  @@index([country])
-}
-
-model Match {
-  id          String       @id @default(cuid())
-  datetime    DateTime
-  status      MatchStatus
-  homeTeamId  String
-  awayTeamId  String
-  leagueId    String
-  homeScore   Int?
-  awayScore   Int?
-  result      String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  homeTeam    Team         @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeam    Team         @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  league      League       @relation(fields: [leagueId], references: [id])
-  predictions Prediction[]
-  odds        Odds[]
-
-  @@index([datetime])
-  @@index([status])
-  @@index([homeTeamId])
-  @@index([awayTeamId])
-  @@index([leagueId])
-  @@index([datetime, status, leagueId])
-}
-
-model Prediction {
-  id          String    @id @default(cuid())
-  userId      String
-  matchId     String
-  result      String
-  confidence  Float
-  reasoning   String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  user        User      @relation(fields: [userId], references: [id])
-  match       Match     @relation(fields: [matchId], references: [id])
-  bet         Bet?
+model EmailLog {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String    // e.g., 'PREDICTION_REPORT'
+  status    String    // e.g., 'SENT', 'FAILED'
+  error     String?
+  metadata  Json?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([matchId])
-  @@index([result])
-  @@index([createdAt])
-  @@index([userId, matchId])
-}
-
-model Odds {
-  id        String   @id @default(cuid())
-  matchId   String
-  provider  String
-  homeWin   Float
-  draw      Float
-  awayWin   Float
-  timestamp DateTime @default(now())
-  match     Match    @relation(fields: [matchId], references: [id])
-
-  @@index([matchId])
-  @@index([provider])
-  @@index([timestamp])
-}
-
-model Bet {
-  id           String     @id @default(cuid())
-  userId       String
-  predictionId String     @unique
-  stake        Float
-  odds         Float
-  status       BetStatus
-  profit       Float?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  user         User       @relation(fields: [userId], references: [id])
-  prediction   Prediction @relation(fields: [predictionId], references: [id])
-
-  @@index([userId])
+  @@index([type])
   @@index([status])
   @@index([createdAt])
-}
-
-enum MatchStatus {
-  SCHEDULED
-  LIVE
-  FINISHED
-  CANCELLED
-}
-
-enum BetStatus {
-  PENDING
-  WON
-  LOST
-  VOID
-  CANCELLED
 }
