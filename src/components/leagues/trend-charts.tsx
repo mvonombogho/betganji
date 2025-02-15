@@ -19,6 +19,7 @@ interface TrendChartsProps {
   goalsData: {
     date: string;
     goals: number;
+    average: number;
   }[];
   resultsData: {
     name: string;
@@ -33,6 +34,64 @@ interface TrendChartsProps {
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#ef4444'];
+
+export const GoalsTrendChart: React.FC<{ data: TrendChartsProps['goalsData'] }> = ({ data }) => (
+  <ResponsiveContainer width="100%" height={300}>
+    <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+      <XAxis 
+        dataKey="date" 
+        className="text-sm"
+        tickFormatter={(value) => new Date(value).toLocaleDateString('en-GB', { month: 'short' })}
+      />
+      <YAxis className="text-sm" />
+      <Tooltip
+        content={({ active, payload, label }) => {
+          if (active && payload && payload.length) {
+            return (
+              <div className="bg-background border rounded-lg shadow-lg p-3">
+                <p className="text-sm font-medium">
+                  {new Date(label).toLocaleDateString('en-GB', { 
+                    day: 'numeric', 
+                    month: 'short' 
+                  })}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Goals: <span className="font-medium text-primary">{payload[0].value}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Average: <span className="font-medium text-emerald-500">
+                    {Number(payload[1].value).toFixed(2)}
+                  </span>
+                </p>
+              </div>
+            );
+          }
+          return null;
+        }}
+      />
+      <Legend />
+      <Line
+        type="monotone"
+        dataKey="goals"
+        stroke="#3b82f6"
+        strokeWidth={2}
+        dot={{ r: 3 }}
+        activeDot={{ r: 8 }}
+        name="Goals Scored"
+      />
+      <Line
+        type="monotone"
+        dataKey="average"
+        stroke="#10b981"
+        strokeWidth={2}
+        strokeDasharray="5 5"
+        dot={false}
+        name="Moving Average"
+      />
+    </LineChart>
+  </ResponsiveContainer>
+);
 
 export const MonthlyPerformanceChart: React.FC<{ data: TrendChartsProps['monthlyData'] }> = ({ data }) => (
   <ResponsiveContainer width="100%" height={300}>
