@@ -1,55 +1,69 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth/auth"
-import { db } from "@/lib/db"
+import { NextRequest } from 'next/server';
+import { MatchService } from '@/lib/data/services/match-service';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
-export async function GET(req: Request) {
+const matchService = new MatchService();
+
+export async function GET(req: NextRequest) {
   try {
-    const session = await auth()
-
+    // Check authentication
+    const session = await getServerSession(authOptions);
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return new Response('Unauthorized', { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url)
-    const status = searchParams.get("status")
-    const competition = searchParams.get("competition")
-    const date = searchParams.get("date")
+    // Get date from query params or use today
+    const { searchParams } = new URL(req.url);
+    const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
-    // Build the where clause for the query
-    const where = {
-      ...(status ? { status } : {}),
-      ...(competition ? { competitionId: competition } : {}),
-      ...(date ? {
-        kickoff: {
-          gte: new Date(date),
-          lt: new Date(new Date(date).setDate(new Date(date).getDate() + 1))
-        }
-      } : {})
-    }
+    // Get matches
+    const matches = await matchService.getMatches(date);
 
-    const matches = await db.match.findMany({
-      where,
-      include: {
-        competition: true,
-        homeTeam: true,
-        awayTeam: true,
-        odds: {
-          orderBy: {
-            timestamp: 'desc'
-          },
-          take: 1
-        }
-      },
-      orderBy: [
-        {
-          kickoff: 'asc'
-        }
-      ]
-    })
+    // Sync matches to database in the background
+    matchService.syncMatchesToDatabase(matches).catch(error => {
+      console.error('Background sync failed:', error);
+    });
 
-    return NextResponse.json(matches)
+    return Response.json(matches);
   } catch (error) {
-    console.error("[MATCHES_GET]", error)
-    return new NextResponse("Internal error", { status: 500 })
+    console.error('Error in matches API:', error);
+    return new Response('Internal Server Error', { status: 500 });
   }
+}
+
+export async function GET_BY_ID(req: NextRequest) {
+  try {
+    // Check authentication
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return new Response('Match ID is required', { status: 400 });
+    }
+
+    const match = await matchService.getMatchById(id);
+    
+    if (!match) {
+      return new Response('Match not found', { status: 404 });
+    }
+
+    return Response.json(match);
+  } catch (error) {
+    console.error('Error in match by ID API:', error);
+    return new Response('Internal Server Error', { status: 500 });
+  }
+}
+
+// Add rate limiting middleware
+export const config = {
+  api: {
+    bodyParser: false,
+    externalResolver: true,
+  },
 }
