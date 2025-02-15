@@ -1,77 +1,77 @@
-export type MatchStatus = 'scheduled' | 'live' | 'finished' | 'cancelled'
-
 export interface Team {
-  id: string
-  name: string
-  shortName?: string
-  logo?: string
-  venue?: string
+  id: string;
+  name: string;
+  shortName?: string;
+  tla?: string;
+  score?: number;
 }
 
 export interface Competition {
-  id: string
-  name: string
-  country: string
-  logo?: string
-}
-
-export interface MatchScore {
-  homeScore: number | null
-  awayScore: number | null
-  homeHalfScore?: number
-  awayHalfScore?: number
-}
-
-export interface MatchOdds {
-  homeWin: number
-  draw: number
-  awayWin: number
-  provider: string
-  lastUpdated: Date
-}
-
-export interface H2HStats {
-  totalGames: number
-  homeWins: number
-  draws: number
-  awayWins: number
-  homeGoals: number
-  awayGoals: number
-  lastMeetings: Match[]
+  id: string;
+  name: string;
+  code?: string;
 }
 
 export interface Match {
-  id: string
-  competition: Competition
-  homeTeam: Team
-  awayTeam: Team
-  kickoff: Date
-  status: MatchStatus
-  score?: MatchScore
-  odds?: MatchOdds[]
-  venue: string
-  referee?: string
-  weather?: {
-    temperature?: number
-    condition?: string
-  }
-  h2h?: H2HStats
-  stats?: {
-    possession?: {
-      home: number
-      away: number
-    }
-    shots?: {
-      home: number
-      away: number
-    }
-    shotsOnTarget?: {
-      home: number
-      away: number
-    }
-    corners?: {
-      home: number
-      away: number
-    }
-  }
+  id: string;
+  homeTeam: Team;
+  awayTeam: Team;
+  competition: Competition;
+  datetime: string;
+  status: MatchStatus;
+  odds?: Odds;
+  predictions?: Prediction[];
+}
+
+export enum MatchStatus {
+  SCHEDULED = 'SCHEDULED',
+  LIVE = 'LIVE',
+  IN_PLAY = 'IN_PLAY',
+  PAUSED = 'PAUSED',
+  FINISHED = 'FINISHED',
+  POSTPONED = 'POSTPONED',
+  SUSPENDED = 'SUSPENDED',
+  CANCELLED = 'CANCELLED',
+}
+
+export interface TeamStats {
+  form: string; // Last 5 matches: W-L-D format
+  recentMatches: RecentMatch[];
+}
+
+export interface RecentMatch {
+  id: string;
+  homeTeam: Team;
+  awayTeam: Team;
+  competition: Competition;
+  date: string;
+}
+
+export interface H2HStats {
+  matches: RecentMatch[];
+  stats: {
+    team1Wins: number;
+    team2Wins: number;
+    draws: number;
+    totalMatches: number;
+  };
+}
+
+export interface Odds {
+  id: string;
+  matchId: string;
+  provider: string;
+  homeWin: number;
+  draw: number;
+  awayWin: number;
+  timestamp: string;
+}
+
+export interface Prediction {
+  id: string;
+  matchId: string;
+  result: string;
+  confidence: number;
+  insights: Record<string, any>;
+  createdAt: string;
 }
