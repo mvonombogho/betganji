@@ -24,6 +24,7 @@ interface TrendChartsProps {
   resultsData: {
     name: string;
     value: number;
+    color: string;
   }[];
   monthlyData: {
     month: string;
@@ -90,6 +91,55 @@ export const GoalsTrendChart: React.FC<{ data: TrendChartsProps['goalsData'] }> 
         name="Moving Average"
       />
     </LineChart>
+  </ResponsiveContainer>
+);
+
+export const ResultsDistributionChart: React.FC<{ data: TrendChartsProps['resultsData'] }> = ({ data }) => (
+  <ResponsiveContainer width="100%" height={300}>
+    <PieChart>
+      <Pie
+        data={data}
+        cx="50%"
+        cy="50%"
+        innerRadius={60}
+        outerRadius={80}
+        fill="#8884d8"
+        paddingAngle={5}
+        dataKey="value"
+      >
+        {data.map((entry, index) => (
+          <Cell 
+            key={`cell-${index}`} 
+            fill={entry.color || COLORS[index % COLORS.length]} 
+          />
+        ))}
+      </Pie>
+      <Tooltip
+        content={({ active, payload }) => {
+          if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            return (
+              <div className="bg-background border rounded-lg shadow-lg p-3">
+                <p className="text-sm font-medium mb-1">
+                  {data.name}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {data.value} matches ({((data.value / data.total) * 100).toFixed(1)}%)
+                </p>
+              </div>
+            );
+          }
+          return null;
+        }}
+      />
+      <Legend 
+        formatter={(value, entry) => (
+          <span className="text-sm">
+            {value} ({((entry.payload.value / entry.payload.total) * 100).toFixed(1)}%)
+          </span>
+        )}
+      />
+    </PieChart>
   </ResponsiveContainer>
 );
 
