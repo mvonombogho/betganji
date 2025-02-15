@@ -10,6 +10,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "cypress": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "start-server-and-test dev http://localhost:3000 cypress:run",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "validate": "npm-run-all --parallel typecheck lint test"
@@ -36,6 +39,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.0.1",
+    "cypress": "^13.6.4",
     "eslint": "^8",
     "eslint-config-next": "14.1.0",
     "jest": "^29.7.0",
@@ -46,6 +50,7 @@
     "postcss": "^8",
     "prettier": "^3.2.5",
     "prisma": "^5.9.1",
+    "start-server-and-test": "^2.0.3",
     "tailwindcss": "^3.3.0",
     "typescript": "^5",
     "whatwg-fetch": "^3.6.20"
