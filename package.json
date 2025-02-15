@@ -13,6 +13,7 @@
     "cypress": "cypress open",
     "cypress:run": "cypress run",
     "test:e2e": "start-server-and-test dev http://localhost:3000 cypress:run",
+    "test:visual": "percy exec -- cypress run",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "validate": "npm-run-all --parallel typecheck lint test"
@@ -30,6 +31,8 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@percy/cli": "^1.27.4",
+    "@percy/cypress": "^3.1.2",
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.1",
     "@testing-library/user-event": "^14.5.2",
