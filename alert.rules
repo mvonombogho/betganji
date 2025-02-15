@@ -1,0 +1,74 @@
+groups:
+- name: betganji
+  rules:
+  - alert: HighErrorRate
+    expr: rate(http_requests_total{status=~"5.."}[5m]) > 1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: High error rate detected
+      description: More than 1 error per second for 5 minutes
+
+  - alert: HighResponseTime
+    expr: http_request_duration_seconds{quantile="0.9"} > 2
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High response time detected
+      description: 90th percentile of response time is above 2 seconds
+
+  - alert: HighMemoryUsage
+    expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High memory usage detected
+      description: Memory usage is above 90%
+
+  - alert: HighCPUUsage
+    expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High CPU usage detected
+      description: CPU usage is above 90%
+
+  - alert: DatabaseConnectionPoolSaturation
+    expr: rate(db_pool_connections_total{state="waiting"}[5m]) > 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Database connection pool near saturation
+      description: Many queries waiting for available connections
+
+  - alert: CacheHitRateLow
+    expr: rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) < 0.5
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: Cache hit rate is low
+      description: Cache hit rate is below 50% for 15 minutes
+
+  - alert: APIEndpointDown
+    expr: up{job="betganji"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: API endpoint is down
+      description: The API endpoint has been down for more than 1 minute
+
+  - alert: SlowQueries
+    expr: rate(slow_queries_total[5m]) > 5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High number of slow queries detected
+      description: More than 5 slow queries per second for 5 minutes
