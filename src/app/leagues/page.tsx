@@ -1,6 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  useLeagues,
+  useLeagueStats,
+  useLeaguePerformance,
+  useLeagueMatches,
+  useLeaguePredictions,
+  useLeagueTeams,
+  prefetchLeagueData,
+} from '@/lib/query/leagues';
 import { LeagueFilter } from '@/components/leagues/league-filter';
 import { LeagueStatsCard } from '@/components/leagues/league-stats-card';
 import { LeaguePerformanceChart } from '@/components/leagues/league-performance-chart';
@@ -15,165 +25,101 @@ import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
-
-interface League {
-  id: string;
-  name: string;
-  country: string;
-  _count: {
-    matches: number;
-    teams: number;
-  };
-}
-
-interface DateRange {
-  from: Date;
-  to: Date;
-}
-
-interface PaginationState {
-  page: number;
-  totalPages: number;
-  total: number;
-}
+import { DateRange } from '@/types/common';
 
 export default function LeaguesPage() {
-  const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<string>();
   const [dateRange, setDateRange] = useState<DateRange>();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string>();
-  const [stats, setStats] = useState<any>();
-  const [performanceData, setPerformanceData] = useState<any[]>([]);
-  const [matches, setMatches] = useState<any[]>([]);
-  const [predictions, setPredictions] = useState<any[]>([]);
-  const [teams, setTeams] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('matches');
-  const [pagination, setPagination] = useState<PaginationState>({
-    page: 1,
-    totalPages: 1,
-    total: 0
-  });
+  const [page, setPage] = useState(1);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchLeagues();
-  }, []);
+  // Fetch leagues
+  const { 
+    data: leagues,
+    isLoading: isLoadingLeagues,
+    error: leaguesError
+  } = useLeagues();
 
-  useEffect(() => {
-    if (selectedLeague) {
-      fetchLeagueData();
-    }
-  }, [selectedLeague, dateRange, pagination.page]);
+  // League data queries
+  const { 
+    data: stats,
+    isLoading: isLoadingStats,
+  } = useLeagueStats(selectedLeague, { dateRange });
 
-  const fetchLeagues = async () => {
+  const {
+    data: performanceData,
+    isLoading: isLoadingPerformance,
+  } = useLeaguePerformance(selectedLeague, { dateRange });
+
+  const {
+    data: matches,
+    isLoading: isLoadingMatches,
+  } = useLeagueMatches(selectedLeague, { 
+    dateRange,
+    enabled: activeTab === 'matches'
+  });
+
+  const {
+    data: predictionsData,
+    isLoading: isLoadingPredictions,
+  } = useLeaguePredictions(selectedLeague, {
+    dateRange,
+    page,
+    limit: 10,
+    enabled: activeTab === 'predictions'
+  });
+
+  const {
+    data: teams,
+    isLoading: isLoadingTeams,
+  } = useLeagueTeams(selectedLeague, {
+    dateRange,
+    enabled: activeTab === 'teams'
+  });
+
+  // Handle league selection
+  const handleLeagueChange = async (leagueId: string) => {
+    setSelectedLeague(leagueId);
+    // Prefetch data for the selected league
     try {
-      const response = await fetch('/api/leagues');
-      if (!response.ok) throw new Error('Failed to fetch leagues');
-      const data = await response.json();
-      setLeagues(data);
-      if (data.length > 0) {
-        setSelectedLeague(data[0].id);
-      }
-    } catch (err) {
-      setError('Failed to load leagues');
-      toast({
-        title: 'Error',
-        description: 'Failed to load leagues. Please try again later.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+      await prefetchLeagueData(queryClient, leagueId, { dateRange });
+    } catch (error) {
+      console.error('Failed to prefetch league data:', error);
     }
   };
 
-  const fetchLeagueData = async () => {
-    setIsLoading(true);
-    try {
-      const dateParams = dateRange 
-        ? `&from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}` 
-        : '';
-
-      // Fetch data based on active tab to optimize performance
-      const requests = [
-        fetch(`/api/leagues/${selectedLeague}/stats${dateParams}`),
-        fetch(`/api/leagues/${selectedLeague}/performance${dateParams}`),
-      ];
-
-      if (activeTab === 'matches' || !activeTab) {
-        requests.push(fetch(`/api/leagues/${selectedLeague}/matches${dateParams}`));
-      }
-      if (activeTab === 'predictions') {
-        requests.push(fetch(`/api/leagues/${selectedLeague}/predictions?page=${pagination.page}&limit=10${dateParams}`));
-      }
-      if (activeTab === 'teams') {
-        requests.push(fetch(`/api/leagues/${selectedLeague}/teams${dateParams}`));
-      }
-
-      const responses = await Promise.all(requests);
-      
-      if (responses.some(res => !res.ok)) {
-        throw new Error('Failed to fetch league data');
-      }
-
-      const [statsData, performanceData, ...otherData] = await Promise.all(
-        responses.map(res => res.json())
-      );
-
-      setStats(statsData);
-      setPerformanceData(performanceData);
-
-      // Update state based on active tab
-      if (activeTab === 'matches' || !activeTab) {
-        setMatches(otherData[0] || []);
-      }
-      if (activeTab === 'predictions') {
-        setPredictions(otherData[0]?.predictions || []);
-        setPagination({
-          page: otherData[0]?.pagination.page || 1,
-          totalPages: otherData[0]?.pagination.totalPages || 1,
-          total: otherData[0]?.pagination.total || 0
-        });
-      }
-      if (activeTab === 'teams') {
-        setTeams(otherData[0] || []);
-      }
-
-      setError(undefined);
-    } catch (err) {
-      setError('Failed to load league data');
-      toast({
-        title: 'Error',
-        description: 'Failed to load league data. Please try again later.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Handle tab change
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    // Reset pagination when switching tabs
     if (value === 'predictions') {
-      setPagination(prev => ({ ...prev, page: 1 }));
+      setPage(1);
     }
   };
 
-  const handlePageChange = (page: number) => {
-    setPagination(prev => ({ ...prev, page }));
+  // Handle pagination
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
   };
 
-  if (error) {
+  // Check for loading states
+  const isLoading = isLoadingLeagues || isLoadingStats || isLoadingPerformance ||
+    (activeTab === 'matches' && isLoadingMatches) ||
+    (activeTab === 'predictions' && isLoadingPredictions) ||
+    (activeTab === 'teams' && isLoadingTeams);
+
+  // Handle errors
+  if (leaguesError) {
     return (
       <Alert variant="destructive">
         <AlertTitle>Error</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription>Failed to load leagues. Please try again later.</AlertDescription>
       </Alert>
     );
   }
 
-  const selectedLeagueData = leagues.find(l => l.id === selectedLeague);
+  const selectedLeagueData = leagues?.find(l => l.id === selectedLeague);
 
   return (
     <div className="space-y-6 p-6">
@@ -181,9 +127,9 @@ export default function LeaguesPage() {
         <h1 className="text-3xl font-bold">League Analysis</h1>
         <div className="flex flex-col gap-4 md:flex-row md:items-center">
           <LeagueFilter
-            leagues={leagues}
+            leagues={leagues || []}
             selectedLeague={selectedLeague}
-            onLeagueChange={setSelectedLeague}
+            onLeagueChange={handleLeagueChange}
           />
           <DateRangePicker
             value={dateRange}
@@ -207,7 +153,7 @@ export default function LeaguesPage() {
               leagueName={selectedLeagueData.name}
             />
             <LeaguePerformanceChart
-              data={performanceData}
+              data={performanceData || []}
               leagueName={selectedLeagueData.name}
             />
           </div>
@@ -220,24 +166,26 @@ export default function LeaguesPage() {
             </TabsList>
             <TabsContent value="matches">
               <Card className="p-4">
-                <LeagueMatchesTable matches={matches} />
+                <LeagueMatchesTable matches={matches || []} />
               </Card>
             </TabsContent>
             <TabsContent value="predictions">
               <Card className="p-4">
-                <LeaguePredictionsTable predictions={predictions} />
-                <div className="mt-4">
-                  <Pagination
-                    currentPage={pagination.page}
-                    totalPages={pagination.totalPages}
-                    onPageChange={handlePageChange}
-                  />
-                </div>
+                <LeaguePredictionsTable predictions={predictionsData?.predictions || []} />
+                {predictionsData && predictionsData.pagination.totalPages > 1 && (
+                  <div className="mt-4">
+                    <Pagination
+                      currentPage={page}
+                      totalPages={predictionsData.pagination.totalPages}
+                      onPageChange={handlePageChange}
+                    />
+                  </div>
+                )}
               </Card>
             </TabsContent>
             <TabsContent value="teams">
               <Card className="p-4">
-                <LeagueTeamsGrid teams={teams} />
+                <LeagueTeamsGrid teams={teams || []} />
               </Card>
             </TabsContent>
           </Tabs>
