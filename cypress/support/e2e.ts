@@ -1,4 +1,5 @@
 import './commands'
+import '@percy/cypress'
 
 declare global {
   namespace Cypress {
