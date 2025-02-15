@@ -1,101 +1,91 @@
-'use client'
-
-import Link from "next/link"
-import { format } from "date-fns"
-import { Match } from "@/types/match"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Match } from '@/types/match';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { formatDateTime } from '@/lib/utils/date';
 
 interface MatchCardProps {
-  match: Match
-  showOdds?: boolean
+  match: Match;
+  onClick?: () => void;
 }
 
-const statusColors = {
-  scheduled: "bg-blue-500",
-  live: "bg-green-500",
-  finished: "bg-gray-500",
-  cancelled: "bg-red-500",
-} as const
-
-export function MatchCard({ match, showOdds = true }: MatchCardProps) {
-  const bestOdds = match.odds?.[0]
+export function MatchCard({ match, onClick }: MatchCardProps) {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'LIVE':
+      case 'IN_PLAY':
+        return 'bg-red-500';
+      case 'FINISHED':
+        return 'bg-green-500';
+      case 'SCHEDULED':
+        return 'bg-blue-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
 
   return (
-    <Link href={`/matches/${match.id}`}>
-      <Card className="hover:bg-accent transition-colors">
-        <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium">
-              {match.competition.name}
-            </span>
-            <Badge 
-              variant="secondary" 
-              className={statusColors[match.status]}
-            >
-              {match.status.toUpperCase()}
-            </Badge>
+    <Card 
+      className="hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={onClick}
+    >
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-sm text-gray-500">
+            {match.competition.name}
+          </CardTitle>
+          <Badge className={`${getStatusColor(match.status)}`}>
+            {match.status}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Teams */}
+          <div className="grid grid-cols-3 items-center gap-2">
+            <div className="text-right font-semibold">
+              {match.homeTeam.name}
+            </div>
+            <div className="text-center text-2xl font-bold">
+              vs
+            </div>
+            <div className="text-left font-semibold">
+              {match.awayTeam.name}
+            </div>
           </div>
-          <span className="text-sm text-muted-foreground">
-            {format(match.kickoff, "MMM d, HH:mm")}
-          </span>
-        </CardHeader>
-        <CardContent className="p-4 pt-2">
-          <div className="space-y-2">
-            <div className="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
-              <div className="text-right">
-                <p className="font-semibold">{match.homeTeam.name}</p>
-                {match.score && (
-                  <p className="text-xl font-bold">{match.score.homeScore}</p>
-                )}
+
+          {/* Match Info */}
+          <div className="text-center text-sm text-gray-500">
+            {formatDateTime(match.datetime)}
+          </div>
+
+          {/* Odds (if available) */}
+          {match.odds && (
+            <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t">
+              <div className="text-center">
+                <div className="font-medium">Home</div>
+                <div>{match.odds.homeWin.toFixed(2)}</div>
               </div>
-              <div className="text-center text-muted-foreground text-sm">
-                vs
+              <div className="text-center">
+                <div className="font-medium">Draw</div>
+                <div>{match.odds.draw.toFixed(2)}</div>
               </div>
-              <div>
-                <p className="font-semibold">{match.awayTeam.name}</p>
-                {match.score && (
-                  <p className="text-xl font-bold">{match.score.awayScore}</p>
-                )}
+              <div className="text-center">
+                <div className="font-medium">Away</div>
+                <div>{match.odds.awayWin.toFixed(2)}</div>
               </div>
             </div>
-            
-            {showOdds && bestOdds && (
-              <div className="grid grid-cols-3 gap-2 text-sm text-center pt-2 border-t">
-                <div>
-                  <p className="text-muted-foreground">Home</p>
-                  <p className="font-medium">{bestOdds.homeWin.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Draw</p>
-                  <p className="font-medium">{bestOdds.draw.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Away</p>
-                  <p className="font-medium">{bestOdds.awayWin.toFixed(2)}</p>
-                </div>
-              </div>
-            )}
-            
-            {match.stats && match.status === 'live' && (
-              <div className="grid grid-cols-3 gap-2 text-sm text-center pt-2 border-t">
-                <div>
-                  <p className="text-muted-foreground">Possession</p>
-                  <p className="font-medium">{match.stats.possession?.home}% - {match.stats.possession?.away}%</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Shots</p>
-                  <p className="font-medium">{match.stats.shots?.home} - {match.stats.shots?.away}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Corners</p>
-                  <p className="font-medium">{match.stats.corners?.home} - {match.stats.corners?.away}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  )
+          )}
+
+          {/* Prediction Badge (if available) */}
+          {match.predictions && match.predictions.length > 0 && (
+            <div className="text-center pt-2">
+              <Badge variant="secondary" className="bg-purple-100">
+                Prediction Available
+              </Badge>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
