@@ -1,0 +1,186 @@
+openapi: 3.0.0
+info:
+  title: BetGanji API
+  version: 1.0.0
+  description: API documentation for the BetGanji sports prediction platform
+
+servers:
+  - url: https://betganji.com/api
+    description: Production server
+  - url: http://localhost:3000/api
+    description: Development server
+
+components:
+  schemas:
+    Match:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        homeTeam:
+          $ref: '#/components/schemas/Team'
+        awayTeam:
+          $ref: '#/components/schemas/Team'
+        datetime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [SCHEDULED, LIVE, FINISHED, CANCELLED]
+        competition:
+          $ref: '#/components/schemas/Competition'
+        odds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Odds'
+        predictions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Prediction'
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        logo:
+          type: string
+          format: uri
+
+    Competition:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+
+    Odds:
+      type: object
+      properties:
+        id:
+          type: string
+        provider:
+          type: string
+        homeWin:
+          type: number
+          format: float
+        draw:
+          type: number
+          format: float
+        awayWin:
+          type: number
+          format: float
+        timestamp:
+          type: string
+          format: date-time
+
+    Prediction:
+      type: object
+      properties:
+        id:
+          type: string
+        result:
+          type: string
+        confidence:
+          type: number
+          format: float
+        insights:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+paths:
+  /matches:
+    get:
+      summary: Get matches
+      description: Retrieve matches for a specific date
+      parameters:
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: List of matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Match'
+        '400':
+          description: Invalid date format
+        '500':
+          description: Server error
+
+  /predictions:
+    post:
+      summary: Create prediction
+      description: Generate a new prediction for a match
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                matchId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Prediction created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prediction'
+        '400':
+          description: Invalid request body
+        '404':
+          description: Match not found
+        '500':
+          description: Server error
+
+  /odds/{matchId}:
+    get:
+      summary: Get match odds
+      description: Retrieve odds for a specific match
+      parameters:
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Match odds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Odds'
+        '404':
+          description: Match not found
+        '500':
+          description: Server error
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
