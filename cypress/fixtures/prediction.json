@@ -1,0 +1,109 @@
+{
+  "prediction": {
+    "id": "pred_123",
+    "matchId": "match_1",
+    "result": "home_win",
+    "confidence": 75,
+    "insights": {
+      "keyFactors": [
+        "Strong home form",
+        "Better head-to-head record",
+        "Superior attacking stats"
+      ],
+      "riskAnalysis": "Medium risk due to recent injury concerns",
+      "confidenceExplanation": "Based on historical performance and current form",
+      "additionalNotes": "Weather conditions might affect play style"
+    },
+    "createdAt": "2025-02-15T12:00:00Z"
+  },
+  "insights": {
+    "specificFactors": [
+      "Player form",
+      "Tactical matchup"
+    ],
+    "variables": [
+      "Weather",
+      "Injuries"
+    ],
+    "recommendedApproach": "Monitor pre-match updates",
+    "alternativeScenarios": "Consider draw if key player injured"
+  },
+  "detailedAnalysis": {
+    "teamComparison": {
+      "attack": {
+        "homeTeam": 8.2,
+        "awayTeam": 7.5,
+        "advantage": "home"
+      },
+      "defense": {
+        "homeTeam": 7.8,
+        "awayTeam": 7.2,
+        "advantage": "home"
+      },
+      "form": {
+        "homeTeam": 7.9,
+        "awayTeam": 6.8,
+        "advantage": "home"
+      }
+    },
+    "historicalPerformance": {
+      "h2hAdvantage": "home",
+      "recentMeetings": [
+        {
+          "date": "2024-12-01",
+          "result": "home_win",
+          "score": "2-1"
+        },
+        {
+          "date": "2024-05-15",
+          "result": "away_win",
+          "score": "0-2"
+        }
+      ],
+      "venueStats": {
+        "homeWins": 65,
+        "draws": 20,
+        "awayWins": 15,
+        "percentages": {
+          "homeWin": 65,
+          "draw": 20,
+          "awayWin": 15
+        }
+      }
+    },
+    "marketAnalysis": {
+      "oddsMovement": {
+        "opening": {
+          "homeWin": 2.2,
+          "draw": 3.4,
+          "awayWin": 3.6
+        },
+        "current": {
+          "homeWin": 2.1,
+          "draw": 3.4,
+          "awayWin": 3.8
+        },
+        "trend": "favoring_home"
+      },
+      "marketConfidence": {
+        "level": "high",
+        "reasoning": "Consistent odds movement and high betting volume"
+      }
+    }
+  },
+  "modelMetrics": {
+    "accuracy": {
+      "overall": 76.5,
+      "similar_matches": 82.3
+    },
+    "calibration": {
+      "confidence_correlation": 0.82,
+      "reliability_score": 0.88
+    },
+    "timestamps": {
+      "dataCollected": "2025-02-15T11:55:00Z",
+      "modelVersion": "2.3.1",
+      "predictionGenerated": "2025-02-15T12:00:00Z"
+    }
+  }
+}
