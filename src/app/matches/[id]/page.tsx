@@ -48,7 +48,32 @@ export default function MatchDetailsPage({ params }: MatchDetailsProps) {
           error={errors.odds}
         />
 
-        {/* To be continued in next chunk... */}
+        {/* Team Stats Section */}
+        {(matchData || loading.match) && (
+          <div className="grid md:grid-cols-2 gap-6">
+            <TeamStatsCard 
+              stats={matchData?.teamStats.home}
+              teamName={matchData?.match.homeTeam.name || 'Home Team'}
+              isLoading={loading.match}
+            />
+            <TeamStatsCard 
+              stats={matchData?.teamStats.away}
+              teamName={matchData?.match.awayTeam.name || 'Away Team'}
+              isLoading={loading.match}
+            />
+          </div>
+        )}
+
+        {/* H2H Stats Section */}
+        {matchData && (
+          <H2HStatsContainer 
+            stats={h2hStats}
+            team1Name={matchData.match.homeTeam.name}
+            team2Name={matchData.match.awayTeam.name}
+            isLoading={loading.h2h}
+            error={errors.h2h}
+          />
+        )}
       </div>
     </div>
   );
