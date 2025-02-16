@@ -1,122 +1,74 @@
-import { APIFootballClient } from '../providers/soccer/api-football';
-import { Match, MatchData, TeamStats, H2HStats } from '@/types/match';
-import { prisma } from '@/lib/prisma';
+import { Match, TeamStats, H2HStats } from '@/types/match';
+import { APIFootballClient } from '@/lib/data/providers/soccer/api-football';
 
-export class MatchService {
+class MatchService {
   private apiClient: APIFootballClient;
+  private cache: Map<string, { data: any; timestamp: number }>;
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
     this.apiClient = new APIFootballClient();
+    this.cache = new Map();
   }
 
-  async getMatches(date: string): Promise<Match[]> {
-    try {
-      // First try to get matches from database
-      const dbMatches = await prisma.match.findMany({
-        where: {
-          datetime: {
-            gte: new Date(date),
-            lt: new Date(new Date(date).setDate(new Date(date).getDate() + 1))
-          }
-        },
-        include: {
-          homeTeam: true,
-          awayTeam: true,
-          competition: true
-        }
-      });
-
-      if (dbMatches.length > 0) {
-        return dbMatches;
-      }
-
-      // If no matches in DB, fetch from API
-      const apiMatches = await this.apiClient.getMatches(date);
-
-      // Store matches in database
-      await this.storeMatches(apiMatches);
-
-      return apiMatches;
-    } catch (error) {
-      console.error('Error in getMatches:', error);
-      throw error;
+  async getMatches(date?: string): Promise<Match[]> {
+    const cacheKey = `matches-${date || 'today'}`;
+    const cached = this.getFromCache(cacheKey);
+    
+    if (cached) {
+      return cached as Match[];
     }
+
+    const matches = await this.apiClient.getMatches(date || new Date().toISOString());
+    this.setCache(cacheKey, matches);
+    return matches;
   }
 
-  async getMatchData(matchId: string): Promise<MatchData> {
-    try {
-      const match = await prisma.match.findUnique({
-        where: { id: matchId },
-        include: {
-          homeTeam: true,
-          awayTeam: true,
-          competition: true
-        }
-      });
+  async getH2H(team1Id: string, team2Id: string): Promise<H2HStats> {
+    const cacheKey = `h2h-${team1Id}-${team2Id}`;
+    const cached = this.getFromCache(cacheKey);
 
-      if (!match) {
-        throw new Error('Match not found');
-      }
-
-      const [homeTeamStats, awayTeamStats, h2hStats] = await Promise.all([
-        this.apiClient.getTeamStats(match.homeTeam.id),
-        this.apiClient.getTeamStats(match.awayTeam.id),
-        this.apiClient.getH2H(match.homeTeam.id, match.awayTeam.id)
-      ]);
-
-      return {
-        match,
-        teamStats: {
-          home: homeTeamStats,
-          away: awayTeamStats
-        },
-        h2h: h2hStats
-      };
-    } catch (error) {
-      console.error('Error in getMatchData:', error);
-      throw error;
+    if (cached) {
+      return cached as H2HStats;
     }
+
+    const h2hStats = await this.apiClient.getH2H(team1Id, team2Id);
+    this.setCache(cacheKey, h2hStats);
+    return h2hStats;
   }
 
-  private async storeMatches(matches: Match[]): Promise<void> {
-    try {
-      await prisma.$transaction(async (tx) => {
-        for (const match of matches) {
-          await tx.match.upsert({
-            where: { id: match.id },
-            update: {
-              datetime: match.datetime,
-              status: match.status
-            },
-            create: {
-              id: match.id,
-              datetime: match.datetime,
-              status: match.status,
-              homeTeam: {
-                connectOrCreate: {
-                  where: { id: match.homeTeam.id },
-                  create: match.homeTeam
-                }
-              },
-              awayTeam: {
-                connectOrCreate: {
-                  where: { id: match.awayTeam.id },
-                  create: match.awayTeam
-                }
-              },
-              competition: {
-                connectOrCreate: {
-                  where: { id: match.competition.id },
-                  create: match.competition
-                }
-              }
-            }
-          });
-        }
-      });
-    } catch (error) {
-      console.error('Error storing matches:', error);
-      throw error;
+  async getTeamStats(teamId: string): Promise<TeamStats> {
+    const cacheKey = `team-stats-${teamId}`;
+    const cached = this.getFromCache(cacheKey);
+
+    if (cached) {
+      return cached as TeamStats;
     }
+
+    const teamStats = await this.apiClient.getTeamStats(teamId);
+    this.setCache(cacheKey, teamStats);
+    return teamStats;
+  }
+
+  private getFromCache(key: string): any | null {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+
+    const isExpired = Date.now() - cached.timestamp > this.CACHE_DURATION;
+    if (isExpired) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return cached.data;
+  }
+
+  private setCache(key: string, data: any): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
   }
 }
+
+export const matchService = new MatchService();
