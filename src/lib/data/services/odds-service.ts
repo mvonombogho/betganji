@@ -1,63 +1,77 @@
-import { OddsAPIClient } from '../providers/odds/odds-api';
-import { OddsData } from '@/types/odds';
-import { prisma } from '@/lib/prisma';
+import { OddsClient } from '@/lib/data/providers/odds/odds-api';
+import { BetfairClient } from '@/lib/data/providers/odds/betfair';
+import { OddsData, OddsHistory } from '@/types/odds';
 
-export class OddsService {
-  private apiClient: OddsAPIClient;
-  private cache: Map<string, { data: OddsData; timestamp: number }>;
-  private CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+class OddsService {
+  private oddsApi: OddsClient;
+  private betfair: BetfairClient;
+  private subscribers: Map<string, Set<(odds: OddsData) => void>>;
 
   constructor() {
-    this.apiClient = new OddsAPIClient();
-    this.cache = new Map();
+    this.oddsApi = new OddsClient();
+    this.betfair = new BetfairClient();
+    this.subscribers = new Map();
   }
 
-  async getMatchOdds(matchId: string): Promise<OddsData> {
+  async getLiveOdds(matchId: string): Promise<OddsData> {
     try {
-      // Check cache first
-      const cached = this.cache.get(matchId);
-      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-        return cached.data;
-      }
-
-      // Get latest odds from API
-      const liveOdds = await this.apiClient.getLiveOdds(matchId);
-
-      // Update cache
-      this.cache.set(matchId, {
-        data: liveOdds,
-        timestamp: Date.now()
-      });
-
-      // Store in database
-      await this.storeOdds(liveOdds);
-
-      return liveOdds;
+      // Try primary provider first
+      const odds = await this.oddsApi.getLiveOdds(matchId);
+      return odds;
     } catch (error) {
-      console.error('Error in getMatchOdds:', error);
-      
-      // If API fails, try to get latest odds from database
-      const latestOdds = await prisma.odds.findFirst({
-        where: { matchId },
-        orderBy: { timestamp: 'desc' }
-      });
-
-      if (!latestOdds) {
-        throw new Error('No odds data available');
-      }
-
-      return latestOdds;
+      // Fallback to secondary provider
+      console.warn('Primary odds provider failed, using fallback', error);
+      return this.betfair.getLiveOdds(matchId);
     }
   }
 
-  private async storeOdds(odds: OddsData): Promise<void> {
+  async getHistoricalOdds(matchId: string): Promise<OddsHistory> {
     try {
-      await prisma.odds.create({
-        data: odds
-      });
+      return await this.oddsApi.getHistoricalOdds(matchId);
     } catch (error) {
-      console.error('Error storing odds:', error);
-      // Don't throw error here as this is a background operation
+      console.error('Failed to fetch historical odds', error);
+      throw error;
+    }
+  }
+
+  subscribeToOddsUpdates(matchId: string, callback: (odds: OddsData) => void): () => void {
+    if (!this.subscribers.has(matchId)) {
+      this.subscribers.set(matchId, new Set());
+    }
+
+    const matchSubscribers = this.subscribers.get(matchId)!;
+    matchSubscribers.add(callback);
+
+    // Set up WebSocket connection for real-time updates
+    this.setupRealtimeUpdates(matchId);
+
+    // Return cleanup function
+    return () => {
+      matchSubscribers.delete(callback);
+      if (matchSubscribers.size === 0) {
+        this.subscribers.delete(matchId);
+        this.cleanupRealtimeUpdates(matchId);
+      }
+    };
+  }
+
+  private setupRealtimeUpdates(matchId: string) {
+    // Implementation of WebSocket or other real-time connection
+    // This is a placeholder for the actual implementation
+    console.log(`Setting up real-time updates for match ${matchId}`);
+  }
+
+  private cleanupRealtimeUpdates(matchId: string) {
+    // Cleanup WebSocket or other real-time connection
+    console.log(`Cleaning up real-time updates for match ${matchId}`);
+  }
+
+  private notifySubscribers(matchId: string, odds: OddsData) {
+    const subscribers = this.subscribers.get(matchId);
+    if (subscribers) {
+      subscribers.forEach(callback => callback(odds));
     }
   }
 }
+
+export const oddsService = new OddsService();

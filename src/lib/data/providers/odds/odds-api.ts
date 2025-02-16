@@ -1,49 +1,51 @@
-import { OddsData } from '@/types/odds';
+import { OddsData, OddsHistory } from '@/types/odds';
 
-export class OddsAPIClient {
-  private apiKey: string;
+export class OddsClient {
   private baseUrl: string;
+  private apiKey: string;
 
   constructor() {
+    this.baseUrl = process.env.ODDS_API_URL || 'https://api.odds-provider.com';
     this.apiKey = process.env.ODDS_API_KEY || '';
-    this.baseUrl = 'https://api.the-odds-api.com/v4';
   }
 
   async getLiveOdds(matchId: string): Promise<OddsData> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/sports/soccer/odds?apiKey=${this.apiKey}&game_id=${matchId}&markets=h2h&regions=eu`,
-        {
-          headers: {
-            'Accept': 'application/json'
-          }
-        }
-      );
+      const response = await fetch(`${this.baseUrl}/odds/${matchId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch live odds');
+        throw new Error(`Failed to fetch odds: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      return this.transformOddsData(data, matchId);
+      return await response.json();
     } catch (error) {
       console.error('Error fetching live odds:', error);
       throw error;
     }
   }
 
-  private transformOddsData(data: any, matchId: string): OddsData {
-    const bookmaker = data.bookmakers[0];
-    const markets = bookmaker.markets.find((m: any) => m.key === 'h2h');
+  async getHistoricalOdds(matchId: string): Promise<OddsHistory> {
+    try {
+      const response = await fetch(`${this.baseUrl}/odds/${matchId}/history`, {
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    return {
-      id: `${matchId}-${bookmaker.key}-${Date.now()}`,
-      matchId,
-      provider: bookmaker.key,
-      homeWin: markets.outcomes.find((o: any) => o.name === data.home_team).price,
-      draw: markets.outcomes.find((o: any) => o.name === 'Draw').price,
-      awayWin: markets.outcomes.find((o: any) => o.name === data.away_team).price,
-      timestamp: new Date()
-    };
+      if (!response.ok) {
+        throw new Error(`Failed to fetch historical odds: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching historical odds:', error);
+      throw error;
+    }
   }
 }
