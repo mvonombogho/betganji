@@ -1,77 +1,46 @@
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Match, TeamStats } from '@/types/match';
-import { OddsData } from '@/types/odds';
+import Link from 'next/link';
 
 interface MatchCardProps {
-  match: Match;
-  odds?: OddsData;
-  isLoading?: boolean;
-  teamStats?: {
-    home: TeamStats;
-    away: TeamStats;
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  datetime: Date;
+  odds?: {
+    homeWin: number;
+    draw: number;
+    awayWin: number;
   };
 }
 
-const MatchCard: React.FC<MatchCardProps> = ({
-  match,
-  odds,
-  isLoading,
-  teamStats
-}) => {
-  if (isLoading) {
-    return (
-      <Card className="w-full p-4">
-        <CardContent>
-          <div className="flex justify-between items-center">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-6 w-16" />
-            <Skeleton className="h-6 w-32" />
-          </div>
-          <div className="mt-4">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4 mt-2" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
+export function MatchCard({ id, homeTeam, awayTeam, datetime, odds }: MatchCardProps) {
   return (
-    <Card className="w-full p-4 hover:shadow-lg transition-shadow">
-      <CardContent>
-        <div className="flex justify-between items-center">
-          <div className="flex-1">
-            <h3 className="font-semibold">{match.homeTeam.name}</h3>
-            {teamStats?.home && (
-              <p className="text-sm text-gray-600">
-                Form: {teamStats.home.recentForm}
-              </p>
-            )}
-          </div>
-          <div className="mx-4 text-lg font-bold">
-            {match.status === 'SCHEDULED' ? 'VS' : `${match.score?.home ?? 0} - ${match.score?.away ?? 0}`}
-          </div>
-          <div className="flex-1 text-right">
-            <h3 className="font-semibold">{match.awayTeam.name}</h3>
-            {teamStats?.away && (
-              <p className="text-sm text-gray-600">
-                Form: {teamStats.away.recentForm}
-              </p>
-            )}
-          </div>
+    <Link href={`/matches/${id}`}>
+      <div className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow">
+        <div className="text-sm text-gray-500 mb-2">
+          {new Date(datetime).toLocaleDateString(undefined, {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
         </div>
-        {odds && (
-          <div className="mt-4 flex justify-around text-sm">
-            <div>Home: {odds.homeWin.toFixed(2)}</div>
-            <div>Draw: {odds.draw.toFixed(2)}</div>
-            <div>Away: {odds.awayWin.toFixed(2)}</div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
+        
+        <div className="flex justify-between items-center mb-2">
+          <span className="font-medium">{homeTeam}</span>
+          {odds && <span className="text-lg">{odds.homeWin.toFixed(2)}</span>}
+        </div>
 
-export default MatchCard;
+        <div className="flex justify-between items-center mb-2 text-gray-500">
+          <span>Draw</span>
+          {odds && <span className="text-lg">{odds.draw.toFixed(2)}</span>}
+        </div>
+
+        <div className="flex justify-between items-center">
+          <span className="font-medium">{awayTeam}</span>
+          {odds && <span className="text-lg">{odds.awayWin.toFixed(2)}</span>}
+        </div>
+      </div>
+    </Link>
+  );
+}
