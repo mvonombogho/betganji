@@ -1,132 +1,80 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+"use client";
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Match } from '@/types/match';
-import { OddsData } from '@/types/odds';
+import { Odds } from '@prisma/client';
 
 interface PredictionFormProps {
-  match: Match;
-  odds?: OddsData;
-  onSubmit: (data: PredictionFormData) => Promise<void>;
-  isLoading?: boolean;
-}
-
-export interface PredictionFormData {
   matchId: string;
-  predictedScore: {
-    home: number;
-    away: number;
-  };
-  confidence: number;
-  notes?: string;
+  currentOdds: Odds | undefined;
 }
 
-const PredictionForm: React.FC<PredictionFormProps> = ({
-  match,
-  odds,
-  onSubmit,
-  isLoading
-}) => {
-  const [homeScore, setHomeScore] = React.useState<number>(0);
-  const [awayScore, setAwayScore] = React.useState<number>(0);
-  const [confidence, setConfidence] = React.useState<number>(50);
-  const [notes, setNotes] = React.useState<string>('');
+export function PredictionForm({ matchId, currentOdds }: PredictionFormProps) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const data: PredictionFormData = {
-      matchId: match.id,
-      predictedScore: {
-        home: homeScore,
-        away: awayScore
-      },
-      confidence,
-      notes: notes.trim() || undefined
-    };
+  const getPrediction = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
 
-    await onSubmit(data);
+      const response = await fetch('/api/predictions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          matchId,
+          odds: currentOdds,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get prediction');
+      }
+
+      const data = await response.json();
+      router.refresh();
+
+      // Show prediction result
+      alert(`Prediction: ${data.prediction.outcome}\nConfidence: ${(data.prediction.confidence * 100).toFixed(1)}%\n\nReasoning: ${data.prediction.reasoning}`);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (!currentOdds) {
+    return (
+      <div className="bg-white p-4 rounded-lg shadow">
+        <p className="text-gray-500">Cannot generate prediction without odds data</p>
+      </div>
+    );
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Make Prediction</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">{match.homeTeam.name}</label>
-              <Input
-                type="number"
-                min={0}
-                value={homeScore}
-                onChange={(e) => setHomeScore(parseInt(e.target.value) || 0)}
-                disabled={isLoading}
-              />
-            </div>
-            <div className="text-xl font-bold">-</div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">{match.awayTeam.name}</label>
-              <Input
-                type="number"
-                min={0}
-                value={awayScore}
-                onChange={(e) => setAwayScore(parseInt(e.target.value) || 0)}
-                disabled={isLoading}
-              />
-            </div>
-          </div>
+    <div className="bg-white p-4 rounded-lg shadow">
+      {error && (
+        <div className="mb-4 p-2 bg-red-50 text-red-500 rounded">
+          {error}
+        </div>
+      )}
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Confidence ({confidence}%)</label>
-            <Input
-              type="range"
-              min={0}
-              max={100}
-              value={confidence}
-              onChange={(e) => setConfidence(parseInt(e.target.value))}
-              disabled={isLoading}
-              className="w-full"
-            />
-          </div>
+      <Button
+        onClick={getPrediction}
+        disabled={isLoading}
+        className="w-full"
+      >
+        {isLoading ? 'Analyzing...' : 'Get AI Prediction'}
+      </Button>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
-            <textarea
-              className="w-full p-2 border rounded-md"
-              rows={3}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={isLoading}
-              placeholder="Add any additional notes or reasoning..."
-            />
-          </div>
-
-          {odds && (
-            <div className="bg-gray-50 p-4 rounded-md">
-              <p className="text-sm font-medium mb-2">Current Odds</p>
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>Home: {odds.homeWin.toFixed(2)}</div>
-                <div>Draw: {odds.draw.toFixed(2)}</div>
-                <div>Away: {odds.awayWin.toFixed(2)}</div>
-              </div>
-            </div>
-          )}
-
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full"
-          >
-            {isLoading ? 'Submitting...' : 'Submit Prediction'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+      <p className="mt-2 text-xs text-gray-500 text-center">
+        Our AI will analyze the match data and current odds to provide a prediction
+      </p>
+    </div>
   );
-};
-
-export default PredictionForm;
+}
