@@ -1,12 +1,18 @@
 import { Match } from '@/types/match';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate } from '@/lib/utils/date';
+import { MatchOverviewSkeleton } from './match-overview-skeleton';
 
 interface MatchOverviewProps {
-  match: Match;
+  match?: Match;
+  isLoading?: boolean;
 }
 
-export function MatchOverview({ match }: MatchOverviewProps) {
+export function MatchOverview({ match, isLoading = false }: MatchOverviewProps) {
+  if (isLoading || !match) {
+    return <MatchOverviewSkeleton />;
+  }
+
   return (
     <Card>
       <CardHeader>
