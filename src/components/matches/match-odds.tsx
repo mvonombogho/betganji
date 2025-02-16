@@ -1,11 +1,17 @@
 import { OddsData } from '@/types/odds';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MatchOddsSkeleton } from './match-odds-skeleton';
 
 interface MatchOddsProps {
-  odds: OddsData;
+  odds?: OddsData;
+  isLoading?: boolean;
 }
 
-export function MatchOdds({ odds }: MatchOddsProps) {
+export function MatchOdds({ odds, isLoading = false }: MatchOddsProps) {
+  if (isLoading || !odds) {
+    return <MatchOddsSkeleton />;
+  }
+
   return (
     <Card>
       <CardHeader>
