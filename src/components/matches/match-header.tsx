@@ -1,5 +1,6 @@
 import React from 'react';
 import { MatchStatus } from '@prisma/client';
+import { MatchStatusBadge } from './match-status-badge';
 
 interface MatchHeaderProps {
   homeTeam: {
@@ -22,6 +23,17 @@ export function MatchHeader({
   status,
   competition
 }: MatchHeaderProps) {
+  const formatKickoff = (date: Date) => {
+    return new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'UTC'
+    }).format(new Date(date));
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
       <div className="flex flex-col items-center space-y-4">
@@ -44,11 +56,9 @@ export function MatchHeader({
           </div>
           
           <div className="flex flex-col items-center space-y-2">
-            <div className="text-sm font-medium text-gray-500">
-              {status}
-            </div>
-            <div className="text-sm text-gray-400">
-              {new Date(kickoff).toLocaleString()}
+            <MatchStatusBadge status={status} />
+            <div className="text-sm text-gray-500 text-center mt-2">
+              {formatKickoff(kickoff)}
             </div>
           </div>
           
