@@ -1,246 +1,132 @@
-'use client'
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Match } from '@/types/match';
+import { OddsData } from '@/types/odds';
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { PredictionType } from "@/types/prediction"
+interface PredictionFormProps {
+  match: Match;
+  odds?: OddsData;
+  onSubmit: (data: PredictionFormData) => Promise<void>;
+  isLoading?: boolean;
+}
 
-import { Button } from "@/components/ui/button"
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Slider } from "@/components/ui/slider"
+export interface PredictionFormData {
+  matchId: string;
+  predictedScore: {
+    home: number;
+    away: number;
+  };
+  confidence: number;
+  notes?: string;
+}
 
-const predictionTypes: { value: PredictionType; label: string }[] = [
-  { value: "match_result", label: "Match Result" },
-  { value: "over_under", label: "Over/Under" },
-  { value: "both_teams_to_score", label: "Both Teams to Score" },
-]
+const PredictionForm: React.FC<PredictionFormProps> = ({
+  match,
+  odds,
+  onSubmit,
+  isLoading
+}) => {
+  const [homeScore, setHomeScore] = React.useState<number>(0);
+  const [awayScore, setAwayScore] = React.useState<number>(0);
+  const [confidence, setConfidence] = React.useState<number>(50);
+  const [notes, setNotes] = React.useState<string>('');
 
-const formSchema = z.object({
-  matchId: z.string().min(1, "Match is required"),
-  type: z.enum(["match_result", "over_under", "both_teams_to_score"] as const),
-  prediction: z.string().min(1, "Prediction is required"),
-  odds: z.string().transform((val) => parseFloat(val)),
-  stake: z.string().optional().transform((val) => val ? parseFloat(val) : undefined),
-  confidence: z.number().min(1).max(100),
-  analysis: z.string().min(10, "Analysis should be at least 10 characters"),
-})
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const data: PredictionFormData = {
+      matchId: match.id,
+      predictedScore: {
+        home: homeScore,
+        away: awayScore
+      },
+      confidence,
+      notes: notes.trim() || undefined
+    };
 
-type FormData = z.infer<typeof formSchema>
-
-export function PredictionForm() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
-
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      confidence: 50,
-      type: "match_result",
-    },
-  })
-
-  async function onSubmit(values: FormData) {
-    try {
-      setLoading(true)
-      
-      const response = await fetch("/api/predictions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to create prediction")
-      }
-
-      router.push("/predictions")
-      router.refresh()
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setLoading(false)
-    }
-  }
+    await onSubmit(data);
+  };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="matchId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Match</FormLabel>
-              <Select
-                disabled={loading}
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a match" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="1">Man United vs Arsenal</SelectItem>
-                  <SelectItem value="2">Liverpool vs Chelsea</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
+    <Card>
+      <CardHeader>
+        <CardTitle>Make Prediction</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-1">{match.homeTeam.name}</label>
+              <Input
+                type="number"
+                min={0}
+                value={homeScore}
+                onChange={(e) => setHomeScore(parseInt(e.target.value) || 0)}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="text-xl font-bold">-</div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium mb-1">{match.awayTeam.name}</label>
+              <Input
+                type="number"
+                min={0}
+                value={awayScore}
+                onChange={(e) => setAwayScore(parseInt(e.target.value) || 0)}
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Confidence ({confidence}%)</label>
+            <Input
+              type="range"
+              min={0}
+              max={100}
+              value={confidence}
+              onChange={(e) => setConfidence(parseInt(e.target.value))}
+              disabled={isLoading}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Notes</label>
+            <textarea
+              className="w-full p-2 border rounded-md"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isLoading}
+              placeholder="Add any additional notes or reasoning..."
+            />
+          </div>
+
+          {odds && (
+            <div className="bg-gray-50 p-4 rounded-md">
+              <p className="text-sm font-medium mb-2">Current Odds</p>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>Home: {odds.homeWin.toFixed(2)}</div>
+                <div>Draw: {odds.draw.toFixed(2)}</div>
+                <div>Away: {odds.awayWin.toFixed(2)}</div>
+              </div>
+            </div>
           )}
-        />
 
-        <FormField
-          control={form.control}
-          name="type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Prediction Type</FormLabel>
-              <Select
-                disabled={loading}
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select prediction type" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {predictionTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="w-full"
+          >
+            {isLoading ? 'Submitting...' : 'Submit Prediction'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+};
 
-        <FormField
-          control={form.control}
-          name="prediction"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Your Prediction</FormLabel>
-              <FormControl>
-                <Input {...field} disabled={loading} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="odds"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Odds</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    step="0.01"
-                    disabled={loading}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="stake"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Stake (Optional)</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="number"
-                    step="0.01"
-                    disabled={loading}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="confidence"
-          render={({ field: { value, onChange, ...field } }) => (
-            <FormItem>
-              <FormLabel>Confidence ({value}%)</FormLabel>
-              <FormControl>
-                <Slider
-                  {...field}
-                  disabled={loading}
-                  value={[value]}
-                  onValueChange={(vals) => onChange(vals[0])}
-                  min={1}
-                  max={100}
-                  step={1}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="analysis"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Analysis</FormLabel>
-              <FormControl>
-                <Textarea
-                  {...field}
-                  disabled={loading}
-                  placeholder="Provide your analysis and reasoning..."
-                  className="h-32"
-                />
-              </FormControl>
-              <FormDescription>
-                Include key factors that influenced your prediction
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Creating prediction..." : "Create Prediction"}
-        </Button>
-      </form>
-    </Form>
-  )
-}
+export default PredictionForm;
