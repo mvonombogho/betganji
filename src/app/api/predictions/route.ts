@@ -1,71 +1,61 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth/auth"
-import { db } from "@/lib/db"
-import { z } from "zod"
-
-const createPredictionSchema = z.object({
-  matchId: z.string(),
-  type: z.enum(["match_result", "over_under", "both_teams_to_score"]),
-  prediction: z.string(),
-  odds: z.number(),
-  stake: z.number().optional(),
-  confidence: z.number().min(1).max(100),
-  analysis: z.string(),
-})
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { getPrediction } from '@/lib/claude';
+import { getServerSession } from '@/lib/auth/verify';
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-
+    const session = await getServerSession();
     if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 })
+      return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const json = await req.json()
-    const body = createPredictionSchema.parse(json)
+    const { matchId, odds } = await req.json();
 
-    const prediction = await db.prediction.create({
+    // Get match data
+    const match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+      },
+    });
+
+    if (!match) {
+      return new NextResponse('Match not found', { status: 404 });
+    }
+
+    // Get recent form (simplified for now)
+    const prediction = await getPrediction({
+      homeTeam: match.homeTeam.name,
+      awayTeam: match.awayTeam.name,
+      homeForm: ['W', 'D', 'W'], // This should be fetched from actual data
+      awayForm: ['L', 'W', 'D'], // This should be fetched from actual data
+      odds: {
+        homeWin: odds.homeWin,
+        draw: odds.draw,
+        awayWin: odds.awayWin,
+      },
+    });
+
+    // Save prediction
+    const savedPrediction = await prisma.prediction.create({
       data: {
-        ...body,
-        userId: session.user.id,
-        status: "pending",
+        matchId,
+        userId: session.userId,
+        prediction: prediction.outcome,
+        confidence: prediction.confidence,
+        reasoning: prediction.reasoning,
       },
-    })
+    });
 
-    return NextResponse.json(prediction)
+    return NextResponse.json({ prediction: savedPrediction });
+
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return new NextResponse("Invalid request data", { status: 422 })
-    }
-
-    return new NextResponse("Internal error", { status: 500 })
-  }
-}
-
-export async function GET(req: Request) {
-  try {
-    const session = await auth()
-
-    if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
-
-    const { searchParams } = new URL(req.url)
-    const status = searchParams.get("status")
-
-    const predictions = await db.prediction.findMany({
-      where: {
-        userId: session.user.id,
-        ...(status ? { status } : {}),
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    })
-
-    return NextResponse.json(predictions)
-  } catch (error) {
-    console.error("[PREDICTIONS_GET]", error)
-    return new NextResponse("Internal error", { status: 500 })
+    console.error('Prediction error:', error);
+    return new NextResponse(
+      'Internal server error', 
+      { status: 500 }
+    );
   }
 }
