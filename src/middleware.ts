@@ -1,19 +1,52 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { getSession } from '@/lib/auth/jwt';
+import { verifyAuth } from '@/lib/auth/verify';
+
+// Paths that don't require authentication
+const publicPaths = [
+  '/login',
+  '/register',
+  '/api/auth/login',
+  '/api/auth/register'
+];
 
 export async function middleware(request: NextRequest) {
-  const publicPaths = ['/login', '/register'];
-  const isPublicPath = publicPaths.some(path => request.nextUrl.pathname.startsWith(path));
+  const { pathname } = request.nextUrl;
 
-  const session = await getSession();
-
-  if (!session && !isPublicPath) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  // Check if the path is public
+  if (publicPaths.some(path => pathname.startsWith(path))) {
+    return NextResponse.next();
   }
 
-  if (session && isPublicPath) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  // Verify authentication
+  const authResult = await verifyAuth(request);
+  
+  if (!authResult.success) {
+    // Redirect to login for page requests
+    if (!pathname.startsWith('/api')) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    
+    // Return 401 for API requests
+    return new NextResponse(
+      JSON.stringify({ error: 'Authentication required' }),
+      {
+        status: 401,
+        headers: { 'content-type': 'application/json' }
+      }
+    );
+  }
+
+  // Add user info to headers for API routes
+  if (pathname.startsWith('/api')) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-id', authResult.userId);
+    
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
   return NextResponse.next();
@@ -21,6 +54,12 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
