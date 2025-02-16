@@ -1,4 +1,4 @@
-import { OddsData, OddsHistory } from '@/types/odds';
+import { OddsData } from '@/types/odds';
 
 export class OddsAPIClient {
   private apiKey: string;
@@ -32,31 +32,7 @@ export class OddsAPIClient {
     }
   }
 
-  async getHistoricalOdds(matchId: string): Promise<OddsHistory> {
-    try {
-      const response = await fetch(
-        `${this.baseUrl}/sports/soccer/odds-history?apiKey=${this.apiKey}&game_id=${matchId}&markets=h2h&regions=eu`,
-        {
-          headers: {
-            'Accept': 'application/json'
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch historical odds');
-      }
-
-      const data = await response.json();
-      return this.transformOddsHistory(data, matchId);
-    } catch (error) {
-      console.error('Error fetching historical odds:', error);
-      throw error;
-    }
-  }
-
   private transformOddsData(data: any, matchId: string): OddsData {
-    // Extract the first bookmaker's odds (we can enhance this later to aggregate multiple bookmakers)
     const bookmaker = data.bookmakers[0];
     const markets = bookmaker.markets.find((m: any) => m.key === 'h2h');
 
@@ -68,13 +44,6 @@ export class OddsAPIClient {
       draw: markets.outcomes.find((o: any) => o.name === 'Draw').price,
       awayWin: markets.outcomes.find((o: any) => o.name === data.away_team).price,
       timestamp: new Date()
-    };
-  }
-
-  private transformOddsHistory(data: any[], matchId: string): OddsHistory {
-    return {
-      matchId,
-      odds: data.map(snapshot => this.transformOddsData(snapshot, matchId))
     };
   }
 }
