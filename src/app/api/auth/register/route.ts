@@ -1,52 +1,68 @@
-import { NextResponse } from "next/server"
-import { hash } from "bcryptjs"
-import { db } from "@/lib/db"
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { sign } from 'jsonwebtoken';
+import { z } from 'zod';
 
-export async function POST(request: Request) {
+const registerSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  password: z.string().min(8).max(100),
+});
+
+export async function POST(req: NextRequest) {
   try {
-    const { name, email, password } = await request.json()
+    const body = await req.json();
+    const validatedData = registerSchema.parse(body);
 
-    // Basic validation
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      )
-    }
+    // TODO: Add actual user creation logic
+    // This is a placeholder implementation
+    const user = {
+      id: crypto.randomUUID(),
+      ...validatedData,
+      role: 'user' as const,
+      createdAt: new Date().toISOString()
+    };
 
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email }
-    })
+    // Create session token
+    const token = sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
 
-    if (existingUser) {
-      return NextResponse.json(
-        { error: "Email already registered" },
-        { status: 400 }
-      )
-    }
+    // Set session cookie
+    cookies().set('session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 86400 // 24 hours
+    });
 
-    // Hash password
-    const hashedPassword = await hash(password, 10)
+    // Remove password from response
+    const { password, ...userWithoutPassword } = user;
+    return NextResponse.json(userWithoutPassword);
 
-    // Create user
-    const user = await db.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword
-      }
-    })
-
-    return NextResponse.json(
-      { message: "User created successfully" },
-      { status: 201 }
-    )
   } catch (error) {
-    console.error("Registration error:", error)
+    console.error('Registration error:', error);
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { message: 'Invalid input', errors: error.errors },
+        { status: 400 }
+      );
+    }
+
+    // Handle potential duplicate email
+    if (error instanceof Error && error.message.includes('duplicate')) {
+      return NextResponse.json(
+        { message: 'Email already registered' },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Something went wrong!" },
+      { message: 'Internal server error' },
       { status: 500 }
-    )
+    );
   }
 }
