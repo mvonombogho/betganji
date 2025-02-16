@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getPrediction } from '@/lib/claude';
-import { getServerSession } from '@/lib/auth/verify';
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession();
-    if (!session) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
     const { matchId, odds } = await req.json();
 
-    // Get match data
+    // Get match details
     const match = await prisma.match.findUnique({
       where: { id: matchId },
       include: {
@@ -25,12 +19,10 @@ export async function POST(req: Request) {
       return new NextResponse('Match not found', { status: 404 });
     }
 
-    // Get recent form (simplified for now)
+    // Get prediction from Claude AI
     const prediction = await getPrediction({
       homeTeam: match.homeTeam.name,
       awayTeam: match.awayTeam.name,
-      homeForm: ['W', 'D', 'W'], // This should be fetched from actual data
-      awayForm: ['L', 'W', 'D'], // This should be fetched from actual data
       odds: {
         homeWin: odds.homeWin,
         draw: odds.draw,
@@ -38,11 +30,10 @@ export async function POST(req: Request) {
       },
     });
 
-    // Save prediction
+    // Save prediction to database
     const savedPrediction = await prisma.prediction.create({
       data: {
         matchId,
-        userId: session.userId,
         prediction: prediction.outcome,
         confidence: prediction.confidence,
         reasoning: prediction.reasoning,
@@ -54,7 +45,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Prediction error:', error);
     return new NextResponse(
-      'Internal server error', 
+      'Failed to generate prediction', 
       { status: 500 }
     );
   }
