@@ -1,72 +1,37 @@
 import React from 'react';
-import { Match } from '@/types/match';
-import MatchCard from './match-card';
-import { useOdds } from '@/hooks/useOdds';
-import { useTeamStats } from '@/hooks/useTeamStats';
+import { Match } from '@prisma/client';
+import { MatchCard } from './match-card';
 
 interface MatchListProps {
-  matches: Match[];
-  isLoading?: boolean;
-  onPageChange?: (page: number) => void;
-  currentPage?: number;
-  totalPages?: number;
+  matches: Array<Match & {
+    homeTeam: { name: string; logo?: string | null };
+    awayTeam: { name: string; logo?: string | null };
+    odds: Array<{
+      homeWin: number;
+      draw: number;
+      awayWin: number;
+    }>;
+  }>;
 }
 
-const MatchList: React.FC<MatchListProps> = ({
-  matches,
-  isLoading,
-  onPageChange,
-  currentPage = 1,
-  totalPages = 1
-}) => {
-  const { getOdds } = useOdds();
-  const { getTeamStats } = useTeamStats();
+export function MatchList({ matches }: MatchListProps) {
+  if (!matches.length) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500">No matches found</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {isLoading ? (
-        Array.from({ length: 5 }).map((_, index) => (
-          <MatchCard
-            key={index}
-            match={{} as Match}
-            isLoading={true}
-          />
-        ))
-      ) : (
-        matches.map((match) => {
-          const odds = getOdds(match.id);
-          const homeStats = getTeamStats(match.homeTeam.id);
-          const awayStats = getTeamStats(match.awayTeam.id);
-
-          return (
-            <MatchCard
-              key={match.id}
-              match={match}
-              odds={odds}
-              teamStats={{
-                home: homeStats,
-                away: awayStats
-              }}
-            />
-          );
-        })
-      )}
-
-      {totalPages > 1 && (
-        <div className="flex justify-center mt-4 space-x-2">
-          {Array.from({ length: totalPages }).map((_, index) => (
-            <button
-              key={index}
-              onClick={() => onPageChange?.(index + 1)}
-              className={`px-3 py-1 rounded ${currentPage === index + 1 ? 'bg-primary text-white' : 'bg-gray-200'}`}
-            >
-              {index + 1}
-            </button>
-          ))}
-        </div>
-      )}
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {matches.map((match) => (
+        <MatchCard
+          key={match.id}
+          match={match}
+          odds={match.odds[0]}
+        />
+      ))}
     </div>
   );
-};
-
-export default MatchList;
+}
