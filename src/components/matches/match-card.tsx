@@ -1,89 +1,101 @@
+import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Match } from '@/types/match';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { formatDateTime } from '@/lib/utils/date';
+import { formatDate } from '@/lib/utils/date';
+import Link from 'next/link';
 
 interface MatchCardProps {
   match: Match;
-  onClick?: () => void;
+  odds?: {
+    homeWin: number;
+    draw: number;
+    awayWin: number;
+  };
+  prediction?: {
+    result: string;
+    confidence: number;
+  };
 }
 
-export function MatchCard({ match, onClick }: MatchCardProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'LIVE':
-      case 'IN_PLAY':
-        return 'bg-red-500';
-      case 'FINISHED':
-        return 'bg-green-500';
-      case 'SCHEDULED':
-        return 'bg-blue-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
+export function MatchCard({ match, odds, prediction }: MatchCardProps) {
   return (
-    <Card 
-      className="hover:shadow-lg transition-shadow cursor-pointer"
-      onClick={onClick}
-    >
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-sm text-gray-500">
-            {match.competition.name}
-          </CardTitle>
-          <Badge className={`${getStatusColor(match.status)}`}>
+    <Card className="w-full max-w-md hover:shadow-lg transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-500">
+              {formatDate(match.datetime)}
+            </span>
+            <span className="text-sm font-medium text-gray-700">
+              {match.competition.name}
+            </span>
+          </div>
+          <span className="text-sm font-medium text-gray-500">
             {match.status}
-          </Badge>
+          </span>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {/* Teams */}
-          <div className="grid grid-cols-3 items-center gap-2">
-            <div className="text-right font-semibold">
-              {match.homeTeam.name}
+
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center space-x-3">
+            {match.homeTeam.logo && (
+              <img 
+                src={match.homeTeam.logo} 
+                alt={match.homeTeam.name}
+                className="w-8 h-8 object-contain"
+              />
+            )}
+            <span className="font-medium">{match.homeTeam.name}</span>
+          </div>
+          <span className="text-lg font-bold">vs</span>
+          <div className="flex items-center space-x-3">
+            <span className="font-medium">{match.awayTeam.name}</span>
+            {match.awayTeam.logo && (
+              <img 
+                src={match.awayTeam.logo} 
+                alt={match.awayTeam.name}
+                className="w-8 h-8 object-contain"
+              />
+            )}
+          </div>
+        </div>
+
+        {odds && (
+          <div className="grid grid-cols-3 gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+            <div className="text-center">
+              <span className="text-sm text-gray-500">Home</span>
+              <p className="font-medium">{odds.homeWin.toFixed(2)}</p>
             </div>
-            <div className="text-center text-2xl font-bold">
-              vs
+            <div className="text-center">
+              <span className="text-sm text-gray-500">Draw</span>
+              <p className="font-medium">{odds.draw.toFixed(2)}</p>
             </div>
-            <div className="text-left font-semibold">
-              {match.awayTeam.name}
+            <div className="text-center">
+              <span className="text-sm text-gray-500">Away</span>
+              <p className="font-medium">{odds.awayWin.toFixed(2)}</p>
             </div>
           </div>
+        )}
 
-          {/* Match Info */}
-          <div className="text-center text-sm text-gray-500">
-            {formatDateTime(match.datetime)}
+        {prediction && (
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-700">
+                Predicted: {prediction.result}
+              </span>
+              <span className="text-sm text-gray-500">
+                {(prediction.confidence * 100).toFixed(1)}% confidence
+              </span>
+            </div>
           </div>
+        )}
 
-          {/* Odds (if available) */}
-          {match.odds && (
-            <div className="grid grid-cols-3 gap-2 text-sm pt-2 border-t">
-              <div className="text-center">
-                <div className="font-medium">Home</div>
-                <div>{match.odds.homeWin.toFixed(2)}</div>
-              </div>
-              <div className="text-center">
-                <div className="font-medium">Draw</div>
-                <div>{match.odds.draw.toFixed(2)}</div>
-              </div>
-              <div className="text-center">
-                <div className="font-medium">Away</div>
-                <div>{match.odds.awayWin.toFixed(2)}</div>
-              </div>
-            </div>
-          )}
-
-          {/* Prediction Badge (if available) */}
-          {match.predictions && match.predictions.length > 0 && (
-            <div className="text-center pt-2">
-              <Badge variant="secondary" className="bg-purple-100">
-                Prediction Available
-              </Badge>
-            </div>
-          )}
+        <div className="mt-4 flex justify-end">
+          <Link href={`/matches/${match.id}`}>
+            <Button variant="outline" size="sm">
+              View Details
+            </Button>
+          </Link>
         </div>
       </CardContent>
     </Card>
