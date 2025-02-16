@@ -1,15 +1,34 @@
 import { OddsData } from '@/types/odds';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MatchOddsSkeleton } from './match-odds-skeleton';
+import { SectionError } from '@/components/ui/error-message';
 
 interface MatchOddsProps {
   odds?: OddsData;
   isLoading?: boolean;
+  error?: string | null;
 }
 
-export function MatchOdds({ odds, isLoading = false }: MatchOddsProps) {
-  if (isLoading || !odds) {
+export function MatchOdds({ odds, isLoading = false, error }: MatchOddsProps) {
+  if (isLoading) {
     return <MatchOddsSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Match Odds</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SectionError message={error} />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!odds) {
+    return null;
   }
 
   return (
