@@ -1,17 +1,24 @@
 "use client";
 
 import { useMatchDetails } from '@/hooks/use-match-details';
+import { Metadata } from 'next';
 import { MatchOverview } from '@/components/matches/match-overview';
 import { MatchOdds } from '@/components/matches/match-odds';
 import { TeamStatsCard } from '@/components/stats/team-stats-card';
 import { H2HStatsContainer } from '@/components/stats/h2h-stats';
 import { ErrorMessage } from '@/components/ui/error-message';
+import { formatDate } from '@/lib/utils/date';
 
 interface MatchDetailsProps {
   params: {
     id: string;
   };
 }
+
+export const metadata: Metadata = {
+  title: 'Match Details | BetGanji',
+  description: 'Detailed match statistics, odds, and predictions'
+};
 
 export default function MatchDetailsPage({ params }: MatchDetailsProps) {
   const {
@@ -22,6 +29,15 @@ export default function MatchDetailsPage({ params }: MatchDetailsProps) {
     errors,
     hasError
   } = useMatchDetails(params.id);
+
+  // Update page title when match data is loaded
+  useEffect(() => {
+    if (matchData) {
+      const { homeTeam, awayTeam, datetime } = matchData.match;
+      const title = `${homeTeam.name} vs ${awayTeam.name} | ${formatDate(datetime)}`;
+      document.title = title;
+    }
+  }, [matchData]);
 
   // Critical error - match data failed to load
   if (errors.match) {
