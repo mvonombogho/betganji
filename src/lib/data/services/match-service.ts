@@ -1,130 +1,122 @@
-import { Match, TeamStats, H2HStats } from '@/types/match';
-import { FootballDataClient } from '../providers/soccer/football-data';
+import { APIFootballClient } from '../providers/soccer/api-football';
+import { Match, MatchData, TeamStats, H2HStats } from '@/types/match';
 import { prisma } from '@/lib/prisma';
 
 export class MatchService {
-  private footballDataClient: FootballDataClient;
+  private apiClient: APIFootballClient;
 
   constructor() {
-    this.footballDataClient = new FootballDataClient();
+    this.apiClient = new APIFootballClient();
   }
 
   async getMatches(date: string): Promise<Match[]> {
     try {
-      // Get matches from the API
-      const matches = await this.footballDataClient.getMatches(date);
-
-      // Get existing matches from the database
-      const existingMatches = await prisma.match.findMany({
+      // First try to get matches from database
+      const dbMatches = await prisma.match.findMany({
         where: {
-          id: {
-            in: matches.map(m => m.id)
+          datetime: {
+            gte: new Date(date),
+            lt: new Date(new Date(date).setDate(new Date(date).getDate() + 1))
           }
         },
         include: {
-          odds: true,
-          predictions: true
+          homeTeam: true,
+          awayTeam: true,
+          competition: true
         }
       });
 
-      // Create a map for quick lookup
-      const existingMatchMap = new Map(
-        existingMatches.map(m => [m.id, m])
-      );
-
-      // Merge API data with database data
-      return matches.map(match => {
-        const existingMatch = existingMatchMap.get(match.id);
-        if (existingMatch) {
-          return {
-            ...match,
-            odds: existingMatch.odds,
-            predictions: existingMatch.predictions
-          };
-        }
-        return match;
-      });
-    } catch (error) {
-      console.error('Error fetching matches:', error);
-      throw new Error('Failed to fetch matches');
-    }
-  }
-
-  async getTeamStats(teamId: string): Promise<TeamStats> {
-    try {
-      return await this.footballDataClient.getTeamStats(teamId);
-    } catch (error) {
-      console.error('Error fetching team stats:', error);
-      throw new Error('Failed to fetch team statistics');
-    }
-  }
-
-  async getH2H(teamId1: string, teamId2: string): Promise<H2HStats> {
-    try {
-      return await this.footballDataClient.getH2H(teamId1, teamId2);
-    } catch (error) {
-      console.error('Error fetching H2H stats:', error);
-      throw new Error('Failed to fetch head-to-head statistics');
-    }
-  }
-
-  async syncMatchesToDatabase(matches: Match[]): Promise<void> {
-    try {
-      for (const match of matches) {
-        await prisma.match.upsert({
-          where: { id: match.id },
-          update: {
-            datetime: new Date(match.datetime),
-            status: match.status,
-            homeTeam: { connect: { id: match.homeTeam.id } },
-            awayTeam: { connect: { id: match.awayTeam.id } },
-            competition: { connect: { id: match.competition.id } }
-          },
-          create: {
-            id: match.id,
-            datetime: new Date(match.datetime),
-            status: match.status,
-            homeTeam: { connect: { id: match.homeTeam.id } },
-            awayTeam: { connect: { id: match.awayTeam.id } },
-            competition: { connect: { id: match.competition.id } }
-          }
-        });
+      if (dbMatches.length > 0) {
+        return dbMatches;
       }
+
+      // If no matches in DB, fetch from API
+      const apiMatches = await this.apiClient.getMatches(date);
+
+      // Store matches in database
+      await this.storeMatches(apiMatches);
+
+      return apiMatches;
     } catch (error) {
-      console.error('Error syncing matches to database:', error);
-      throw new Error('Failed to sync matches to database');
+      console.error('Error in getMatches:', error);
+      throw error;
     }
   }
 
-  async getMatchById(id: string): Promise<Match | null> {
+  async getMatchData(matchId: string): Promise<MatchData> {
     try {
       const match = await prisma.match.findUnique({
-        where: { id },
+        where: { id: matchId },
         include: {
           homeTeam: true,
           awayTeam: true,
-          competition: true,
-          odds: true,
-          predictions: true
+          competition: true
         }
       });
 
-      if (!match) return null;
+      if (!match) {
+        throw new Error('Match not found');
+      }
 
-      // Transform the database model to Match type
+      const [homeTeamStats, awayTeamStats, h2hStats] = await Promise.all([
+        this.apiClient.getTeamStats(match.homeTeam.id),
+        this.apiClient.getTeamStats(match.awayTeam.id),
+        this.apiClient.getH2H(match.homeTeam.id, match.awayTeam.id)
+      ]);
+
       return {
-        id: match.id,
-        homeTeam: match.homeTeam,
-        awayTeam: match.awayTeam,
-        competition: match.competition,
-        datetime: match.datetime.toISOString(),
-        status: match.status,
-        odds: match.odds,
-        predictions: match.predictions
+        match,
+        teamStats: {
+          home: homeTeamStats,
+          away: awayTeamStats
+        },
+        h2h: h2hStats
       };
     } catch (error) {
-      console.error('Error fetching match by ID:', error);
-      throw new Error('Failed to fetch match details');
+      console.error('Error in getMatchData:', error);
+      throw error;
+    }
+  }
+
+  private async storeMatches(matches: Match[]): Promise<void> {
+    try {
+      await prisma.$transaction(async (tx) => {
+        for (const match of matches) {
+          await tx.match.upsert({
+            where: { id: match.id },
+            update: {
+              datetime: match.datetime,
+              status: match.status
+            },
+            create: {
+              id: match.id,
+              datetime: match.datetime,
+              status: match.status,
+              homeTeam: {
+                connectOrCreate: {
+                  where: { id: match.homeTeam.id },
+                  create: match.homeTeam
+                }
+              },
+              awayTeam: {
+                connectOrCreate: {
+                  where: { id: match.awayTeam.id },
+                  create: match.awayTeam
+                }
+              },
+              competition: {
+                connectOrCreate: {
+                  where: { id: match.competition.id },
+                  create: match.competition
+                }
+              }
+            }
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error storing matches:', error);
+      throw error;
     }
   }
 }
