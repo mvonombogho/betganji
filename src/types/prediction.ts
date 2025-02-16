@@ -3,36 +3,35 @@ import { Match } from './match';
 export interface Prediction {
   id: string;
   matchId: string;
-  match: Match;
-  result: string;
+  result: {
+    home: number;
+    away: number;
+  };
   confidence: number;
-  patterns?: PredictionPattern[];
-  createdAt: Date;
+  notes?: string;
   insights?: PredictionInsights;
-}
-
-export interface PredictionPattern {
-  type: 'positive' | 'negative';
-  description: string;
+  createdAt: string;
+  match?: Match;
 }
 
 export interface PredictionInsights {
-  rationale: string;
-  keyFactors: string[];
-  riskLevel: 'low' | 'medium' | 'high';
+  factors: AnalysisFactor[];
+  recommendedBets?: RecommendedBet[];
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  confidenceScore: number;
+  additionalNotes?: string;
 }
 
-export interface HistoricalData {
-  accuracy: number;
-  totalPredictions: number;
-  recentTrend: {
-    wins: number;
-    total: number;
-  };
+export interface AnalysisFactor {
+  name: string;
+  impact: number; // -1 to 1
+  description: string;
 }
 
-export interface LeagueStats {
-  totalPredictions: number;
-  successRate: number;
-  averageConfidence: number;
+export interface RecommendedBet {
+  market: string;
+  selection: string;
+  odds: number;
+  stake: number;
+  confidence: number;
 }

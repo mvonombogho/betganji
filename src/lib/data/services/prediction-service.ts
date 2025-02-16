@@ -1,111 +1,103 @@
-import prisma from '@/lib/db';
-import { analyzePatterns } from '@/lib/ai/prediction/analyzer';
-import { Prediction, HistoricalData, LeagueStats } from '@/types/prediction';
+import { Prediction, PredictionInsights } from '@/types/prediction';
+import { DeepseekClient } from '@/lib/ai/deepseek/client';
+import { PredictionEngine } from '@/lib/ai/prediction/engine';
+import { matchService } from './match-service';
+import { oddsService } from './odds-service';
 
-export async function getPredictions(): Promise<Prediction[]> {
-  return prisma.prediction.findMany({
-    include: {
-      match: {
-        include: {
-          homeTeam: true,
-          awayTeam: true,
-          competition: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: 'desc'
+class PredictionService {
+  private deepseek: DeepseekClient;
+  private engine: PredictionEngine;
+
+  constructor() {
+    this.deepseek = new DeepseekClient();
+    this.engine = new PredictionEngine();
+  }
+
+  async createPrediction(data: {
+    matchId: string;
+    result: { home: number; away: number };
+    confidence: number;
+    notes?: string;
+  }): Promise<Prediction> {
+    // Gather all necessary data for analysis
+    const [match, odds] = await Promise.all([
+      matchService.getMatches().then(matches => 
+        matches.find(m => m.id === data.matchId)
+      ),
+      oddsService.getLiveOdds(data.matchId)
+    ]);
+
+    if (!match) {
+      throw new Error('Match not found');
     }
-  });
-}
 
-export async function getPrediction(id: string): Promise<Prediction | null> {
-  return prisma.prediction.findUnique({
-    where: { id },
-    include: {
-      match: {
-        include: {
-          homeTeam: true,
-          awayTeam: true,
-          competition: true
-        }
-      }
+    // Generate AI insights
+    const insights = await this.generateInsights({
+      match,
+      odds,
+      prediction: data
+    });
+
+    // Create the prediction record
+    const prediction: Prediction = {
+      id: crypto.randomUUID(),
+      matchId: data.matchId,
+      result: data.result,
+      confidence: data.confidence,
+      notes: data.notes,
+      insights,
+      createdAt: new Date().toISOString(),
+      match
+    };
+
+    // Here you would typically save to your database
+    console.log('Created prediction:', prediction);
+
+    return prediction;
+  }
+
+  private async generateInsights(data: {
+    match: any;
+    odds: any;
+    prediction: any;
+  }): Promise<PredictionInsights> {
+    try {
+      // Use the prediction engine to analyze the prediction
+      const initialInsights = await this.engine.analyzePrediction(
+        data.match,
+        data.odds
+      );
+
+      // Enhance insights with DeepSeek analysis
+      const enhancedInsights = await this.deepseek.generatePrediction(
+        JSON.stringify({
+          match: data.match,
+          odds: data.odds,
+          prediction: data.prediction,
+          initialInsights
+        })
+      );
+
+      return {
+        ...initialInsights,
+        ...enhancedInsights
+      };
+    } catch (error) {
+      console.error('Failed to generate insights:', error);
+      return {
+        factors: [],
+        riskLevel: 'MEDIUM',
+        confidenceScore: data.prediction.confidence,
+        additionalNotes: 'Failed to generate detailed insights.'
+      };
     }
-  });
+  }
+
+  async getPredictionHistory(): Promise<Prediction[]> {
+    // Here you would typically fetch from your database
+    // This is a mock implementation
+    return [];
+  }
 }
 
-export async function getHistoricalPredictions(matchId: string): Promise<HistoricalData> {
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    include: {
-      homeTeam: true,
-      awayTeam: true,
-      competition: true,
-      predictions: true
-    }
-  });
-
-  if (!match) throw new Error('Match not found');
-
-  const teamPredictions = await prisma.prediction.findMany({
-    where: {
-      OR: [
-        { match: { homeTeamId: match.homeTeam.id } },
-        { match: { awayTeamId: match.awayTeam.id } }
-      ]
-    },
-    include: {
-      match: true
-    }
-  });
-
-  const accuracy = calculatePredictionAccuracy(teamPredictions);
-  
-  return {
-    accuracy,
-    totalPredictions: teamPredictions.length,
-    recentTrend: calculateRecentTrend(teamPredictions)
-  };
-}
-
-export async function getLeagueStats(leagueId: string): Promise<LeagueStats> {
-  const predictions = await prisma.prediction.findMany({
-    where: {
-      match: {
-        competitionId: leagueId
-      }
-    },
-    include: {
-      match: true
-    }
-  });
-
-  return {
-    totalPredictions: predictions.length,
-    successRate: calculatePredictionAccuracy(predictions),
-    averageConfidence: calculateAverageConfidence(predictions)
-  };
-}
-
-function calculatePredictionAccuracy(predictions: Prediction[]): number {
-  if (predictions.length === 0) return 0;
-  const correctPredictions = predictions.filter(p => p.result === p.match.result).length;
-  return Number(((correctPredictions / predictions.length) * 100).toFixed(1));
-}
-
-function calculateAverageConfidence(predictions: Prediction[]): number {
-  if (predictions.length === 0) return 0;
-  const totalConfidence = predictions.reduce((sum, p) => sum + p.confidence, 0);
-  return Number((totalConfidence / predictions.length).toFixed(1));
-}
-
-function calculateRecentTrend(predictions: Prediction[]) {
-  const sortedPredictions = predictions
-    .sort((a, b) => new Date(b.match.datetime).getTime() - new Date(a.match.datetime).getTime())
-    .slice(0, 5);
-
-  return {
-    wins: sortedPredictions.filter(p => p.result === p.match.result).length,
-    total: sortedPredictions.length
-  };
-}
+export const predictionService = new PredictionService();
