@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { OddsTrend } from './odds-trend';
 
 interface OddsDisplayProps {
   currentOdds: {
@@ -23,7 +24,7 @@ export function OddsDisplay({ currentOdds, historicalOdds }: OddsDisplayProps) {
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold">Latest Odds</h3>
+          <h3 className="text-lg font-semibold">Match Odds</h3>
           <span className="text-sm text-gray-500">
             {currentOdds.provider}
           </span>
@@ -43,6 +44,17 @@ export function OddsDisplay({ currentOdds, historicalOdds }: OddsDisplayProps) {
             <div className="text-sm text-gray-500 mb-1">Away Win</div>
             <div className="text-2xl font-bold">{currentOdds.awayWin.toFixed(2)}</div>
           </div>
+        </div>
+
+        {historicalOdds && historicalOdds.length > 1 && (
+          <div className="mt-6">
+            <h4 className="text-sm font-medium text-gray-500 mb-2">Odds Movement</h4>
+            <OddsTrend data={historicalOdds} />
+          </div>
+        )}
+
+        <div className="mt-4 text-xs text-gray-400 text-right">
+          Last updated: {new Date(currentOdds.timestamp).toLocaleString()}
         </div>
       </CardContent>
     </Card>
