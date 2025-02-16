@@ -1,118 +1,97 @@
-'use client'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-import { useState } from "react"
-import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
 
-import { Button } from "@/components/ui/button"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
+type LoginFormData = z.infer<typeof loginSchema>;
 
-const formSchema = z.object({
-  email: z.string().email({
-    message: "Please enter a valid email address",
-  }),
-  password: z.string().min(1, {
-    message: "Password is required",
-  }),
-})
+export default function LoginForm() {
+  const router = useRouter();
+  const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
 
-export function LoginForm() {
-  const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  })
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  const onSubmit = async (data: LoginFormData) => {
     try {
-      setError(null)
-      setLoading(true)
+      setIsLoading(true);
+      setError('');
 
-      const result = await signIn("credentials", {
-        redirect: false,
-        email: values.email,
-        password: values.password,
-      })
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-      if (!result?.error) {
-        router.push("/dashboard")
-        router.refresh()
-      } else {
-        setError("Invalid email or password")
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to login');
       }
-    } catch (error) {
-      setError("An error occurred. Please try again.")
+
+      router.push('/dashboard');
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
-      setLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  disabled={loading}
-                  placeholder="name@example.com"
-                  type="email"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="space-y-2">
+        <Input
+          type="email"
+          placeholder="Email"
+          {...register('email')}
+          className={errors.email ? 'border-red-500' : ''}
         />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  disabled={loading}
-                  placeholder="Enter your password"
-                  type="password"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {error && (
-          <div className="text-sm text-red-500">
-            {error}
-          </div>
+        {errors.email && (
+          <p className="text-sm text-red-500">{errors.email.message}</p>
         )}
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Signing in..." : "Sign in"}
-        </Button>
-      </form>
-    </Form>
-  )
+      </div>
+
+      <div className="space-y-2">
+        <Input
+          type="password"
+          placeholder="Password"
+          {...register('password')}
+          className={errors.password ? 'border-red-500' : ''}
+        />
+        {errors.password && (
+          <p className="text-sm text-red-500">{errors.password.message}</p>
+        )}
+      </div>
+
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={isLoading}
+      >
+        {isLoading ? 'Signing in...' : 'Sign in'}
+      </Button>
+    </form>
+  );
 }
