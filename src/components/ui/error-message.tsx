@@ -1,33 +1,35 @@
-import React from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface ErrorMessageProps {
-  title?: string;
   message: string;
-  retry?: () => void;
+  className?: string;
 }
 
-export function ErrorMessage({ 
-  title = 'Error', 
-  message, 
-  retry 
-}: ErrorMessageProps) {
+export function ErrorMessage({ message, className = '' }: ErrorMessageProps) {
   return (
-    <Alert variant="destructive">
-      <AlertCircle className="h-4 w-4" />
-      <AlertTitle>{title}</AlertTitle>
-      <AlertDescription className="flex items-center gap-4">
-        {message}
-        {retry && (
-          <button
-            onClick={retry}
-            className="text-sm underline hover:no-underline"
-          >
-            Try again
-          </button>
-        )}
-      </AlertDescription>
-    </Alert>
+    <Card className={`bg-red-50 ${className}`}>
+      <CardContent className="p-4">
+        <div className="flex items-center space-x-2">
+          <AlertCircle className="h-5 w-5 text-red-500" />
+          <p className="text-red-600">{message}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface SectionErrorProps {
+  message: string;
+}
+
+export function SectionError({ message }: SectionErrorProps) {
+  return (
+    <div className="p-4 bg-red-50 rounded-lg">
+      <div className="flex items-center space-x-2 text-sm">
+        <AlertCircle className="h-4 w-4 text-red-500" />
+        <p className="text-red-600">{message}</p>
+      </div>
+    </div>
   );
 }
