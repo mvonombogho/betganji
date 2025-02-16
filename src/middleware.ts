@@ -1,49 +1,26 @@
 import { NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { NextRequestWithAuth, withAuth } from 'next-auth/middleware';
+import type { NextRequest } from 'next/server';
+import { getSession } from '@/lib/auth/jwt';
 
-export default withAuth(
-  async function middleware(req: NextRequestWithAuth) {
-    const token = await getToken({ req });
-    const isAuth = !!token;
-    const isAuthPage = req.nextUrl.pathname.startsWith('/auth');
+export async function middleware(request: NextRequest) {
+  const publicPaths = ['/login', '/register'];
+  const isPublicPath = publicPaths.some(path => request.nextUrl.pathname.startsWith(path));
 
-    if (isAuthPage) {
-      if (isAuth) {
-        return NextResponse.redirect(new URL('/dashboard', req.url));
-      }
-      return null;
-    }
+  const session = await getSession();
 
-    if (!isAuth) {
-      let from = req.nextUrl.pathname;
-      if (req.nextUrl.search) {
-        from += req.nextUrl.search;
-      }
-
-      return NextResponse.redirect(
-        new URL(`/auth/login?from=${encodeURIComponent(from)}`, req.url)
-      );
-    }
-  },
-  {
-    callbacks: {
-      async authorized() {
-        // This is a temporary callback -- the real checks happen in the middleware function
-        return true;
-      },
-    },
+  if (!session && !isPublicPath) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
-);
+
+  if (session && isPublicPath) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
-    // Protected routes that require authentication
-    '/dashboard/:path*',
-    '/predictions/:path*',
-    '/matches/:path*',
-    '/profile/:path*',
-    // Auth routes
-    '/auth/:path*',
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };

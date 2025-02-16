@@ -1,62 +1,49 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { sign } from 'jsonwebtoken';
-import { z } from 'zod';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { verifyPassword } from '@/lib/auth/password';
+import { signToken } from '@/lib/auth/jwt';
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8)
-});
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { email, password } = loginSchema.parse(body);
+    const { email, password } = await req.json();
 
-    // TODO: Replace with your actual user authentication logic
-    // This is a placeholder implementation
-    if (email === 'test@example.com' && password === 'password123') {
-      const user = {
-        id: '1',
-        email,
-        name: 'Test User',
-        role: 'user' as const
-      };
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-      // Create session token
-      const token = sign(
-        { userId: user.id, role: user.role },
-        process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
-      );
-
-      // Set session cookie
-      cookies().set('session', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 86400 // 24 hours
-      });
-
-      return NextResponse.json(user);
-    }
-
-    return NextResponse.json(
-      { message: 'Invalid credentials' },
-      { status: 401 }
-    );
-  } catch (error) {
-    console.error('Login error:', error);
-    
-    if (error instanceof z.ZodError) {
+    if (!user) {
       return NextResponse.json(
-        { message: 'Invalid input', errors: error.errors },
-        { status: 400 }
+        { error: 'Invalid credentials' },
+        { status: 401 }
       );
     }
 
+    const isValidPassword = await verifyPassword(password, user.password);
+
+    if (!isValidPassword) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      );
+    }
+
+    const token = signToken(user.id);
+
+    const response = NextResponse.json({
+      user: { id: user.id, email: user.email, name: user.name },
+    });
+
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+    });
+
+    return response;
+  } catch (error) {
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

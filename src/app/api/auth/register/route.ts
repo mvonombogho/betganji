@@ -1,67 +1,51 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { sign } from 'jsonwebtoken';
-import { z } from 'zod';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { hashPassword } from '@/lib/auth/password';
+import { signToken } from '@/lib/auth/jwt';
 
-const registerSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(8).max(100),
-});
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const validatedData = registerSchema.parse(body);
+    const { email, password, name } = await req.json();
 
-    // TODO: Add actual user creation logic
-    // This is a placeholder implementation
-    const user = {
-      id: crypto.randomUUID(),
-      ...validatedData,
-      role: 'user' as const,
-      createdAt: new Date().toISOString()
-    };
-
-    // Create session token
-    const token = sign(
-      { userId: user.id, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
-    );
-
-    // Set session cookie
-    cookies().set('session', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 86400 // 24 hours
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
     });
 
-    // Remove password from response
-    const { password, ...userWithoutPassword } = user;
-    return NextResponse.json(userWithoutPassword);
-
-  } catch (error) {
-    console.error('Registration error:', error);
-
-    if (error instanceof z.ZodError) {
+    if (existingUser) {
       return NextResponse.json(
-        { message: 'Invalid input', errors: error.errors },
+        { error: 'Email already exists' },
         { status: 400 }
       );
     }
 
-    // Handle potential duplicate email
-    if (error instanceof Error && error.message.includes('duplicate')) {
-      return NextResponse.json(
-        { message: 'Email already registered' },
-        { status: 409 }
-      );
-    }
+    const hashedPassword = await hashPassword(password);
 
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+      },
+    });
+
+    const token = signToken(user.id);
+
+    const response = NextResponse.json(
+      { user: { id: user.id, email: user.email, name: user.name } },
+      { status: 201 }
+    );
+
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+    });
+
+    return response;
+  } catch (error) {
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
