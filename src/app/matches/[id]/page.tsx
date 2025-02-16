@@ -1,15 +1,11 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { MatchHeader } from '@/components/matches/match-header';
-import { PredictionForm } from '@/components/predictions/prediction-form';
 
 interface MatchPageProps {
-  params: {
-    id: string;
-  };
+  params: { id: string };
 }
 
-async function getMatch(id: string) {
+async function getMatchDetails(id: string) {
   try {
     const match = await prisma.match.findUnique({
       where: { id },
@@ -19,12 +15,6 @@ async function getMatch(id: string) {
         odds: {
           orderBy: {
             timestamp: 'desc',
-          },
-          take: 1,
-        },
-        predictions: {
-          orderBy: {
-            createdAt: 'desc',
           },
           take: 1,
         },
@@ -39,35 +29,42 @@ async function getMatch(id: string) {
 }
 
 export default async function MatchPage({ params }: MatchPageProps) {
-  const match = await getMatch(params.id);
+  const match = await getMatchDetails(params.id);
 
   if (!match) {
     notFound();
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <MatchHeader 
-        homeTeam={match.homeTeam.name}
-        awayTeam={match.awayTeam.name}
-        kickoff={match.datetime}
-        status={match.status}
-      />
+    <div className="container mx-auto px-4 py-6">
+      {/* Match Header */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="text-sm text-gray-500 mb-2">
+          {new Date(match.datetime).toLocaleString()}
+        </div>
+        <div className="flex justify-between items-center text-xl font-bold">
+          <span>{match.homeTeam.name}</span>
+          <span>vs</span>
+          <span>{match.awayTeam.name}</span>
+        </div>
+      </div>
 
+      {/* Content Grid */}
       <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Current Odds</h2>
+        {/* Odds Section */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Current Odds</h2>
           {match.odds[0] ? (
-            <div className="grid grid-cols-3 gap-4 bg-white p-4 rounded-lg shadow">
-              <div className="text-center">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
                 <div className="text-sm text-gray-500">Home Win</div>
                 <div className="text-xl font-bold">{match.odds[0].homeWin.toFixed(2)}</div>
               </div>
-              <div className="text-center">
+              <div>
                 <div className="text-sm text-gray-500">Draw</div>
                 <div className="text-xl font-bold">{match.odds[0].draw.toFixed(2)}</div>
               </div>
-              <div className="text-center">
+              <div>
                 <div className="text-sm text-gray-500">Away Win</div>
                 <div className="text-xl font-bold">{match.odds[0].awayWin.toFixed(2)}</div>
               </div>
@@ -77,9 +74,10 @@ export default async function MatchPage({ params }: MatchPageProps) {
           )}
         </div>
 
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Get Prediction</h2>
-          <PredictionForm matchId={match.id} currentOdds={match.odds[0]} />
+        {/* Prediction Section Placeholder */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Get AI Prediction</h2>
+          <p className="text-gray-500">Prediction form will be added here</p>
         </div>
       </div>
     </div>
