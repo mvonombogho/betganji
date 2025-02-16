@@ -28,3 +28,41 @@ export interface H2HSummary {
   team1Goals: number;
   team2Goals: number;
 }
+
+/**
+ * Recent form analysis for head-to-head matches
+ */
+export interface H2HForm {
+  lastFiveResults: string[];
+  averageGoalsScored: number;
+  averageGoalsConceded: number;
+  cleanSheets: number;
+  goallessDraws: number;
+}
+
+/**
+ * Complete head-to-head statistics between two teams
+ */
+export interface H2HStats {
+  // Team identifiers
+  team1Id: string;
+  team2Id: string;
+  
+  // Match history
+  matches: H2HMatch[];
+  
+  // Statistical summaries
+  summary: H2HSummary;
+  
+  // Form analysis
+  team1Form: H2HForm;
+  team2Form: H2HForm;
+  
+  // Additional context
+  lastMatch?: H2HMatch;
+  venue?: {
+    team1HomeWins: number;
+    team2HomeWins: number;
+    draws: number;
+  };
+}
