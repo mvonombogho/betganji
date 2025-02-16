@@ -1,77 +1,79 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
-import { Match } from '@/types/match';
 import { MatchList } from '@/components/matches/match-list';
-import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { Match } from '@/types/match';
+import { getDateString, addDays } from '@/lib/utils/date';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { CalendarIcon } from 'lucide-react';
 
 export default function MatchesPage() {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [date, setDate] = useState<Date>(new Date());
 
-  const fetchMatches = async (date: string) => {
+  useEffect(() => {
+    fetchMatches();
+  }, [date]);
+
+  const fetchMatches = async () => {
     try {
-      setLoading(true);
-      const response = await fetch(`/api/matches?date=${date}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch matches');
-      }
-
+      setIsLoading(true);
+      const response = await fetch(`/api/matches?date=${getDateString(date)}`);
+      if (!response.ok) throw new Error('Failed to fetch matches');
       const data = await response.json();
       setMatches(data);
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load matches. Please try again later.',
-        variant: 'destructive',
-      });
+      console.error('Error fetching matches:', error);
+      // You might want to add error state handling here
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    fetchMatches(today);
-  }, []);
-
-  const handleMatchSelect = (match: Match) => {
-    router.push(`/predictions/${match.id}`);
-  };
-
-  const handleDateChange = (date: string) => {
-    fetchMatches(date);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Soccer Matches</h1>
-          <p className="text-gray-500 mt-2">
-            Browse matches and make predictions
-          </p>
-        </div>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-2xl font-bold">Matches</h1>
+        
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="outline"
+            onClick={() => setDate(addDays(date, -1))}
+          >
+            Previous Day
+          </Button>
 
-        <MatchList
-          matches={matches}
-          onMatchSelect={handleMatchSelect}
-          onDateChange={handleDateChange}
-        />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[240px] justify-start">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {format(date, 'PPP')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={(date) => date && setDate(date)}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            variant="outline"
+            onClick={() => setDate(addDays(date, 1))}
+          >
+            Next Day
+          </Button>
+        </div>
       </div>
+
+      <MatchList matches={matches} isLoading={isLoading} />
     </div>
   );
 }
