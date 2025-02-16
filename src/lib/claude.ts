@@ -1,14 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.CLAUDE_API_KEY,
+  apiKey: process.env.CLAUDE_API_KEY!,
 });
 
-interface MatchData {
+interface PredictionInput {
   homeTeam: string;
   awayTeam: string;
-  homeForm: string[];
-  awayForm: string[];
   odds: {
     homeWin: number;
     draw: number;
@@ -16,49 +14,55 @@ interface MatchData {
   };
 }
 
-export async function getPrediction(matchData: MatchData) {
-  const prompt = `Based on the following match data, predict the outcome and provide reasoning:
+export async function getPrediction(input: PredictionInput) {
+  const prompt = `Analyze this soccer match and provide a prediction:
 
-Match: ${matchData.homeTeam} vs ${matchData.awayTeam}
-
-Home Team Form: ${matchData.homeForm.join(', ')}
-Away Team Form: ${matchData.awayForm.join(', ')}
+${input.homeTeam} vs ${input.awayTeam}
 
 Current Odds:
-Home Win: ${matchData.odds.homeWin}
-Draw: ${matchData.odds.draw}
-Away Win: ${matchData.odds.awayWin}
+Home Win: ${input.odds.homeWin}
+Draw: ${input.odds.draw}
+Away Win: ${input.odds.awayWin}
 
-Provide your prediction in a structured format with:
-1. Predicted outcome (WIN_HOME, DRAW, or WIN_AWAY)
-2. Confidence level (0-1)
-3. Brief reasoning`;
+Based on the team names and current odds, predict the most likely outcome.
+Provide your response in this format:
+1. Prediction (WIN_HOME, DRAW, or WIN_AWAY)
+2. Confidence (0.0 to 1.0)
+3. Brief reasoning for the prediction`;
 
-  const message = await anthropic.messages.create({
-    model: 'claude-3-opus-20240229',
-    max_tokens: 300,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-3-opus-20240229',
+      max_tokens: 150,
+      messages: [{ role: 'user', content: prompt }],
+    });
 
-  // Parse the response
-  const content = message.content[0].text;
-  const lines = content.split('\n');
-  
-  let prediction = {
-    outcome: '',
-    confidence: 0,
-    reasoning: ''
-  };
+    const content = response.content[0].text;
+    const lines = content.split('\n').map(line => line.trim());
 
-  for (const line of lines) {
-    if (line.includes('WIN_HOME') || line.includes('DRAW') || line.includes('WIN_AWAY')) {
-      prediction.outcome = line.trim();
-    } else if (line.includes('0.') || line.includes('1.0')) {
-      prediction.confidence = parseFloat(line);
-    } else if (line.length > 20) { // Assuming this is the reasoning
-      prediction.reasoning = line.trim();
+    // Parse prediction
+    let outcome = 'WIN_HOME';
+    let confidence = 0.5;
+    let reasoning = '';
+
+    for (const line of lines) {
+      if (line.includes('WIN_HOME') || line.includes('DRAW') || line.includes('WIN_AWAY')) {
+        outcome = line.includes('WIN_HOME') ? 'WIN_HOME' :
+                 line.includes('DRAW') ? 'DRAW' : 'WIN_AWAY';
+      } else if (line.match(/0\.[0-9]+|1\.0/)) {
+        confidence = parseFloat(line.match(/0\.[0-9]+|1\.0/)![0]);
+      } else if (line.length > 20) {
+        reasoning = line;
+      }
     }
-  }
 
-  return prediction;
+    return {
+      outcome,
+      confidence,
+      reasoning,
+    };
+  } catch (error) {
+    console.error('Claude API error:', error);
+    throw new Error('Failed to generate prediction');
+  }
 }
