@@ -1,36 +1,72 @@
 import React from 'react';
 import { Match } from '@/types/match';
-import { MatchCard } from './match-card';
+import MatchCard from './match-card';
+import { useOdds } from '@/hooks/useOdds';
+import { useTeamStats } from '@/hooks/useTeamStats';
 
 interface MatchListProps {
   matches: Match[];
   isLoading?: boolean;
+  onPageChange?: (page: number) => void;
+  currentPage?: number;
+  totalPages?: number;
 }
 
-export function MatchList({ matches, isLoading = false }: MatchListProps) {
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, index) => (
-          <div key={index} className="w-full h-48 bg-gray-100 animate-pulse rounded-lg" />
-        ))}
-      </div>
-    );
-  }
-
-  if (matches.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-gray-500">No matches found</p>
-      </div>
-    );
-  }
+const MatchList: React.FC<MatchListProps> = ({
+  matches,
+  isLoading,
+  onPageChange,
+  currentPage = 1,
+  totalPages = 1
+}) => {
+  const { getOdds } = useOdds();
+  const { getTeamStats } = useTeamStats();
 
   return (
     <div className="space-y-4">
-      {matches.map((match) => (
-        <MatchCard key={match.id} match={match} />
-      ))}
+      {isLoading ? (
+        Array.from({ length: 5 }).map((_, index) => (
+          <MatchCard
+            key={index}
+            match={{} as Match}
+            isLoading={true}
+          />
+        ))
+      ) : (
+        matches.map((match) => {
+          const odds = getOdds(match.id);
+          const homeStats = getTeamStats(match.homeTeam.id);
+          const awayStats = getTeamStats(match.awayTeam.id);
+
+          return (
+            <MatchCard
+              key={match.id}
+              match={match}
+              odds={odds}
+              teamStats={{
+                home: homeStats,
+                away: awayStats
+              }}
+            />
+          );
+        })
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-4 space-x-2">
+          {Array.from({ length: totalPages }).map((_, index) => (
+            <button
+              key={index}
+              onClick={() => onPageChange?.(index + 1)}
+              className={`px-3 py-1 rounded ${currentPage === index + 1 ? 'bg-primary text-white' : 'bg-gray-200'}`}
+            >
+              {index + 1}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default MatchList;
