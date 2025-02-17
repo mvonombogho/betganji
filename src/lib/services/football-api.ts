@@ -1,104 +1,55 @@
 const API_KEY = process.env.FOOTBALL_API_KEY;
 const BASE_URL = 'https://api.football-data.org/v4';
 
-interface ApiMatch {
-  id: number;
-  homeTeam: {
-    id: number;
-    name: string;
-    shortName: string;
-  };
-  awayTeam: {
-    id: number;
-    name: string;
-    shortName: string;
-  };
-  utcDate: string;
-  status: string;
-  score?: {
-    fullTime: {
-      home: number;
-      away: number;
+interface ApiResponse<T> {
+  data: T;
+  error?: string;
+}
+
+async function fetchFromAPI<T>(endpoint: string): Promise<ApiResponse<T>> {
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}`, {
+      headers: {
+        'X-Auth-Token': API_KEY!,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    console.error('Football API error:', error);
+    return {
+      data: {} as T,
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
-  };
-  competition: {
-    name: string;
-    area: {
-      name: string;
-    };
-  };
-}
-
-async function fetchFromAPI(endpoint: string) {
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    headers: {
-      'X-Auth-Token': API_KEY!,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Football API error: ${response.statusText}`);
   }
-
-  return response.json();
 }
 
-export async function getMatches(dateFrom?: string, dateTo?: string) {
-  const dateParams = dateFrom && dateTo ? `?dateFrom=${dateFrom}&dateTo=${dateTo}` : '';
-  const data = await fetchFromAPI(`/matches${dateParams}`);
-  return data.matches as ApiMatch[];
+export async function getUpcomingMatches() {
+  const endpoint = '/matches?status=SCHEDULED&limit=50';
+  return fetchFromAPI(endpoint);
 }
 
-export async function getMatchById(id: string) {
-  const data = await fetchFromAPI(`/matches/${id}`);
-  return data as ApiMatch;
+export async function getLiveMatches() {
+  const endpoint = '/matches?status=LIVE';
+  return fetchFromAPI(endpoint);
 }
 
-export async function getTeamMatches(teamId: string, limit: number = 5) {
-  const data = await fetchFromAPI(`/teams/${teamId}/matches?limit=${limit}`);
-  return data.matches as ApiMatch[];
+export async function getMatchDetails(matchId: string) {
+  const endpoint = `/matches/${matchId}`;
+  return fetchFromAPI(endpoint);
 }
 
-// Function to sync matches with our database
-export async function syncMatches(matches: ApiMatch[]) {
-  for (const match of matches) {
-    // Check if teams exist, create if not
-    const homeTeam = await prisma.team.upsert({
-      where: { externalId: match.homeTeam.id.toString() },
-      update: { name: match.homeTeam.name },
-      create: {
-        externalId: match.homeTeam.id.toString(),
-        name: match.homeTeam.name,
-      },
-    });
+export async function getTeamStatistics(teamId: string) {
+  const endpoint = `/teams/${teamId}/matches?limit=10&status=FINISHED`;
+  return fetchFromAPI(endpoint);
+}
 
-    const awayTeam = await prisma.team.upsert({
-      where: { externalId: match.awayTeam.id.toString() },
-      update: { name: match.awayTeam.name },
-      create: {
-        externalId: match.awayTeam.id.toString(),
-        name: match.awayTeam.name,
-      },
-    });
-
-    // Create or update match
-    await prisma.match.upsert({
-      where: { externalId: match.id.toString() },
-      update: {
-        status: match.status as any,
-        homeScore: match.score?.fullTime.home,
-        awayScore: match.score?.fullTime.away,
-      },
-      create: {
-        externalId: match.id.toString(),
-        homeTeamId: homeTeam.id,
-        awayTeamId: awayTeam.id,
-        competition: `${match.competition.area.name} - ${match.competition.name}`,
-        datetime: new Date(match.utcDate),
-        status: match.status as any,
-        homeScore: match.score?.fullTime.home,
-        awayScore: match.score?.fullTime.away,
-      },
-    });
-  }
+export async function getCompetitions() {
+  const endpoint = '/competitions';
+  return fetchFromAPI(endpoint);
 }
