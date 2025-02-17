@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
+import { comparePassword } from '@/lib/auth/password';
 import { signToken } from '@/lib/auth/jwt';
 
 export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
+
+    // Validate input
+    if (!email || !password) {
+      return new NextResponse(
+        'Email and password are required',
+        { status: 400 }
+      );
+    }
 
     // Find user
     const user = await prisma.user.findUnique({
@@ -14,17 +22,16 @@ export async function POST(req: Request) {
 
     if (!user) {
       return new NextResponse(
-        'Invalid credentials',
+        'Invalid email or password',
         { status: 401 }
       );
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-
+    const isValidPassword = await comparePassword(password, user.password);
     if (!isValidPassword) {
       return new NextResponse(
-        'Invalid credentials',
+        'Invalid email or password',
         { status: 401 }
       );
     }
