@@ -2,10 +2,11 @@ import { getServerSession } from '@/lib/auth/verify';
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { StatsOverview } from '@/components/profile/stats-overview';
+import { RecentPredictions } from '@/components/profile/recent-predictions';
 import { calculateUserStats } from '@/lib/stats/calculate-user-stats';
 
 async function getUserProfile(userId: string) {
-  const [user, stats] = await Promise.all([
+  const [user, stats, recentPredictions] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -16,13 +17,28 @@ async function getUserProfile(userId: string) {
       },
     }),
     calculateUserStats(userId),
+    prisma.prediction.findMany({
+      where: { userId },
+      include: {
+        match: {
+          include: {
+            homeTeam: true,
+            awayTeam: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 5, // Get only the 5 most recent predictions
+    }),
   ]);
 
   if (!user) {
     redirect('/login');
   }
 
-  return { user, stats };
+  return { user, stats, recentPredictions };
 }
 
 export default async function ProfilePage() {
@@ -31,7 +47,7 @@ export default async function ProfilePage() {
     redirect('/login');
   }
 
-  const { user, stats } = await getUserProfile(session.userId);
+  const { user, stats, recentPredictions } = await getUserProfile(session.userId);
 
   return (
     <div className="space-y-6">
@@ -58,10 +74,18 @@ export default async function ProfilePage() {
         <StatsOverview stats={stats} />
       </div>
 
-      {/* Placeholder for Prediction History */}
+      {/* Recent Predictions */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-4">Recent Predictions</h2>
-        <p className="text-gray-500">Recent predictions will be displayed here</p>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">Recent Predictions</h2>
+          <Link 
+            href="/predictions" 
+            className="text-sm text-blue-600 hover:text-blue-500"
+          >
+            View all
+          </Link>
+        </div>
+        <RecentPredictions predictions={recentPredictions} />
       </div>
     </div>
   );
