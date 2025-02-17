@@ -3,15 +3,19 @@ import { prisma } from '@/lib/db';
 import { MatchList } from '@/components/matches/match-list';
 import { MatchFilters } from '@/components/matches/match-filters';
 import { MatchSearch } from '@/components/matches/match-search';
+import { Pagination } from '@/components/ui/pagination';
+
+const ITEMS_PER_PAGE = 10;
 
 interface MatchesPageProps {
   searchParams: {
     status?: string;
     q?: string;
+    page?: string;
   };
 }
 
-async function getMatches(status?: string, search?: string) {
+async function getMatches(status?: string, search?: string, page: number = 1) {
   const where: any = {};
 
   // Add status filter
@@ -47,6 +51,11 @@ async function getMatches(status?: string, search?: string) {
     ];
   }
 
+  // Get total count for pagination
+  const totalCount = await prisma.match.count({ where });
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
+  // Get paginated matches
   const matches = await prisma.match.findMany({
     where,
     include: {
@@ -64,13 +73,24 @@ async function getMatches(status?: string, search?: string) {
         datetime: 'asc',
       },
     ],
+    skip: (page - 1) * ITEMS_PER_PAGE,
+    take: ITEMS_PER_PAGE,
   });
 
-  return matches;
+  return {
+    matches,
+    totalPages,
+    currentPage: page,
+  };
 }
 
 export default async function MatchesPage({ searchParams }: MatchesPageProps) {
-  const matches = await getMatches(searchParams.status, searchParams.q);
+  const currentPage = searchParams.page ? parseInt(searchParams.page) : 1;
+  const { matches, totalPages, currentPage: page } = await getMatches(
+    searchParams.status,
+    searchParams.q,
+    currentPage
+  );
 
   return (
     <div className="space-y-6">
@@ -89,6 +109,20 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
         <Suspense fallback={<div>Loading matches...</div>}>
           <MatchList matches={matches} />
         </Suspense>
+
+        {totalPages > 1 && (
+          <div className="mt-6">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={(newPage) => {
+                const params = new URLSearchParams(searchParams);
+                params.set('page', newPage.toString());
+                window.location.search = params.toString();
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
