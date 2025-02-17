@@ -1,23 +1,28 @@
 import { getServerSession } from '@/lib/auth/verify';
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
+import { StatsOverview } from '@/components/profile/stats-overview';
+import { calculateUserStats } from '@/lib/stats/calculate-user-stats';
 
 async function getUserProfile(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      createdAt: true,
-    },
-  });
+  const [user, stats] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+      },
+    }),
+    calculateUserStats(userId),
+  ]);
 
   if (!user) {
     redirect('/login');
   }
 
-  return user;
+  return { user, stats };
 }
 
 export default async function ProfilePage() {
@@ -26,7 +31,7 @@ export default async function ProfilePage() {
     redirect('/login');
   }
 
-  const user = await getUserProfile(session.userId);
+  const { user, stats } = await getUserProfile(session.userId);
 
   return (
     <div className="space-y-6">
@@ -47,10 +52,10 @@ export default async function ProfilePage() {
         </div>
       </div>
 
-      {/* Placeholder for Stats Overview */}
+      {/* Statistics Overview */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-lg font-semibold mb-4">Statistics Overview</h2>
-        <p className="text-gray-500">Statistics will be displayed here</p>
+        <StatsOverview stats={stats} />
       </div>
 
       {/* Placeholder for Prediction History */}
