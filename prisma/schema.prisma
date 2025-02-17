@@ -26,6 +26,9 @@ model Match {
   competition   String
   datetime      DateTime
   status        MatchStatus  @default(SCHEDULED)
+  result        MatchResult?
+  homeScore     Int?
+  awayScore     Int?
   odds          Odds[]
   predictions   Prediction[]
   createdAt     DateTime     @default(now())
@@ -52,15 +55,16 @@ model Odds {
 }
 
 model Prediction {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  match      Match    @relation(fields: [matchId], references: [id])
-  matchId    String   @db.ObjectId
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String   @db.ObjectId
-  prediction String   # WIN_HOME, DRAW, WIN_AWAY
-  confidence Float
-  reasoning  String
-  createdAt  DateTime @default(now())
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  match       Match    @relation(fields: [matchId], references: [id])
+  matchId     String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String   @db.ObjectId
+  prediction  String   # WIN_HOME, DRAW, WIN_AWAY
+  confidence  Float
+  reasoning   String
+  isCorrect   Boolean?
+  createdAt   DateTime @default(now())
 }
 
 enum MatchStatus {
@@ -68,4 +72,10 @@ enum MatchStatus {
   LIVE
   FINISHED
   CANCELLED
+}
+
+enum MatchResult {
+  HOME_WIN
+  DRAW
+  AWAY_WIN
 }
