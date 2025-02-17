@@ -1,13 +1,11 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { getTeamStats, getHeadToHead } from '@/lib/services/stats-service';
 import { TeamPerformance } from '@/components/analysis/team-performance';
 import { HeadToHead } from '@/components/analysis/head-to-head';
-import { OddsAnalysis } from '@/components/analysis/odds-analysis';
-import { MatchStatsCard } from '@/components/analysis/match-stats-card';
+import { LiveOdds } from '@/components/odds/live-odds';
+import { PredictionRequest } from '@/components/predictions/prediction-request';
 
-async function getMatchAnalysis(id: string) {
-  // Get match details
+async function getMatchDetails(id: string) {
   const match = await prisma.match.findUnique({
     where: { id },
     include: {
@@ -17,11 +15,14 @@ async function getMatchAnalysis(id: string) {
         orderBy: {
           timestamp: 'desc',
         },
+        take: 10, // Get last 10 odds for the chart
       },
     },
   });
 
-  if (!match) return null;
+  if (!match) {
+    notFound();
+  }
 
   // Get team stats
   const [homeStats, awayStats] = await Promise.all([
@@ -29,30 +30,15 @@ async function getMatchAnalysis(id: string) {
     getTeamStats(match.awayTeamId),
   ]);
 
-  // Get head-to-head history
-  const h2hMatches = await getHeadToHead(match.homeTeamId, match.awayTeamId);
-
   return {
     match,
     homeStats,
     awayStats,
-    h2hMatches,
   };
 }
 
-export default async function MatchAnalysisPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const analysis = await getMatchAnalysis(params.id);
-
-  if (!analysis) {
-    notFound();
-  }
-
-  const { match, homeStats, awayStats, h2hMatches } = analysis;
-  const currentOdds = match.odds[0];
+export default async function MatchPage({ params }: { params: { id: string } }) {
+  const { match, homeStats, awayStats } = await getMatchDetails(params.id);
 
   return (
     <div className="space-y-6">
@@ -66,58 +52,33 @@ export default async function MatchAnalysisPage({
         </p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MatchStatsCard
-          title="Average Goals (Home)"
-          value={(homeStats.stats.goalsScored / 5).toFixed(1)}
-          subtitle="Last 5 matches"
-        />
-        <MatchStatsCard
-          title="Win Rate (Home)"
-          value={`${((homeStats.stats.wins / 5) * 100).toFixed(0)}%`}
-          subtitle="Last 5 matches"
-        />
-        <MatchStatsCard
-          title="Average Goals (Away)"
-          value={(awayStats.stats.goalsScored / 5).toFixed(1)}
-          subtitle="Last 5 matches"
-        />
-        <MatchStatsCard
-          title="Win Rate (Away)"
-          value={`${((awayStats.stats.wins / 5) * 100).toFixed(0)}%`}
-          subtitle="Last 5 matches"
+      {/* Live Odds Section */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h2 className="text-lg font-semibold mb-4">Match Odds</h2>
+        <LiveOdds
+          matchId={match.id}
+          initialOdds={match.odds.reverse()} // Reverse to get chronological order
+          homeTeam={match.homeTeam.name}
+          awayTeam={match.awayTeam.name}
         />
       </div>
 
-      {/* Detailed Analysis */}
+      {/* Team Performance */}
       <div className="grid gap-6 lg:grid-cols-2">
         <TeamPerformance
           name={match.homeTeam.name}
-          recentForm={homeStats.recentForm}
-          stats={homeStats.stats}
+          stats={homeStats}
         />
         <TeamPerformance
           name={match.awayTeam.name}
-          recentForm={awayStats.recentForm}
-          stats={awayStats.stats}
+          stats={awayStats}
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <HeadToHead
-          matches={h2hMatches}
-          team1Name={match.homeTeam.name}
-          team2Name={match.awayTeam.name}
-        />
-        {currentOdds && (
-          <OddsAnalysis
-            currentOdds={currentOdds}
-            historicalOdds={match.odds.slice(1)}
-            homeTeam={match.homeTeam.name}
-            awayTeam={match.awayTeam.name}
-          />
-        )}
+      {/* Prediction Section */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h2 className="text-lg font-semibold mb-4">Get AI Prediction</h2>
+        <PredictionRequest matchId={match.id} />
       </div>
     </div>
   );
