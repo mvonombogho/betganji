@@ -1,136 +1,124 @@
-// Previous imports and data remain the same...
+import { notFound } from 'next/navigation';
+import { prisma } from '@/lib/db';
+import { getTeamStats, getHeadToHead } from '@/lib/services/stats-service';
+import { TeamPerformance } from '@/components/analysis/team-performance';
+import { HeadToHead } from '@/components/analysis/head-to-head';
+import { OddsAnalysis } from '@/components/analysis/odds-analysis';
+import { MatchStatsCard } from '@/components/analysis/match-stats-card';
 
-interface MatchDetailPageProps {
-  params: {
-    id: string
-  }
+async function getMatchAnalysis(id: string) {
+  // Get match details
+  const match = await prisma.match.findUnique({
+    where: { id },
+    include: {
+      homeTeam: true,
+      awayTeam: true,
+      odds: {
+        orderBy: {
+          timestamp: 'desc',
+        },
+      },
+    },
+  });
+
+  if (!match) return null;
+
+  // Get team stats
+  const [homeStats, awayStats] = await Promise.all([
+    getTeamStats(match.homeTeamId),
+    getTeamStats(match.awayTeamId),
+  ]);
+
+  // Get head-to-head history
+  const h2hMatches = await getHeadToHead(match.homeTeamId, match.awayTeamId);
+
+  return {
+    match,
+    homeStats,
+    awayStats,
+    h2hMatches,
+  };
 }
 
-export default async function MatchDetailPage({ params }: MatchDetailPageProps) {
-  // In a real app, fetch match data using the ID
-  const match = demoMatch
-  
-  if (!match) {
-    notFound()
+export default async function MatchAnalysisPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const analysis = await getMatchAnalysis(params.id);
+
+  if (!analysis) {
+    notFound();
   }
+
+  const { match, homeStats, awayStats, h2hMatches } = analysis;
+  const currentOdds = match.odds[0];
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" asChild>
-        <Link href="/matches">
-          <ChevronLeft className="h-4 w-4 mr-2" />
-          Back to matches
-        </Link>
-      </Button>
+      {/* Match Header */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h1 className="text-2xl font-bold mb-2">
+          {match.homeTeam.name} vs {match.awayTeam.name}
+        </h1>
+        <p className="text-gray-500">
+          {new Date(match.datetime).toLocaleString()}
+        </p>
+      </div>
 
-      <MatchDetailHeader match={match} />
+      {/* Quick Stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MatchStatsCard
+          title="Average Goals (Home)"
+          value={(homeStats.stats.goalsScored / 5).toFixed(1)}
+          subtitle="Last 5 matches"
+        />
+        <MatchStatsCard
+          title="Win Rate (Home)"
+          value={`${((homeStats.stats.wins / 5) * 100).toFixed(0)}%`}
+          subtitle="Last 5 matches"
+        />
+        <MatchStatsCard
+          title="Average Goals (Away)"
+          value={(awayStats.stats.goalsScored / 5).toFixed(1)}
+          subtitle="Last 5 matches"
+        />
+        <MatchStatsCard
+          title="Win Rate (Away)"
+          value={`${((awayStats.stats.wins / 5) * 100).toFixed(0)}%`}
+          subtitle="Last 5 matches"
+        />
+      </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-6">
-          <MatchOdds match={match} />
-          <MatchLineups match={match} />
-        </div>
+      {/* Detailed Analysis */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TeamPerformance
+          name={match.homeTeam.name}
+          recentForm={homeStats.recentForm}
+          stats={homeStats.stats}
+        />
+        <TeamPerformance
+          name={match.awayTeam.name}
+          recentForm={awayStats.recentForm}
+          stats={awayStats.stats}
+        />
+      </div>
 
-        <div className="space-y-6">
-          <MatchCommentary match={match} />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Match Info</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="space-y-4">
-                <div>
-                  <dt className="text-sm text-muted-foreground">Competition</dt>
-                  <dd className="font-medium">{match.competition.name}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Venue</dt>
-                  <dd className="font-medium">{match.venue}</dd>
-                </div>
-                {match.referee && (
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Referee</dt>
-                    <dd className="font-medium">{match.referee}</dd>
-                  </div>
-                )}
-                {match.weather && (
-                  <div>
-                    <dt className="text-sm text-muted-foreground">Weather</dt>
-                    <dd className="font-medium">
-                      {match.weather.condition}, {match.weather.temperature}°C
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </CardContent>
-          </Card>
-
-          {match.h2h && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Head to Head</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4 text-center mb-6">
-                  <div>
-                    <p className="text-2xl font-bold">
-                      {match.h2h.homeWins}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {match.homeTeam.name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">
-                      {match.h2h.draws}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Draws
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">
-                      {match.h2h.awayWins}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {match.awayTeam.name}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Total Games
-                    </span>
-                    <span className="font-medium">
-                      {match.h2h.totalGames}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Total Goals
-                    </span>
-                    <span className="font-medium">
-                      {match.h2h.homeGoals + match.h2h.awayGoals}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Average Goals/Game
-                    </span>
-                    <span className="font-medium">
-                      {((match.h2h.homeGoals + match.h2h.awayGoals) / 
-                        match.h2h.totalGames).toFixed(1)}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <HeadToHead
+          matches={h2hMatches}
+          team1Name={match.homeTeam.name}
+          team2Name={match.awayTeam.name}
+        />
+        {currentOdds && (
+          <OddsAnalysis
+            currentOdds={currentOdds}
+            historicalOdds={match.odds.slice(1)}
+            homeTeam={match.homeTeam.name}
+            awayTeam={match.awayTeam.name}
+          />
+        )}
       </div>
     </div>
-  )
+  );
 }
