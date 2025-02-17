@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import * as footballApi from './football-api';
+import * as oddsApi from './odds-api';
 
 export async function syncMatches() {
   try {
@@ -8,6 +9,12 @@ export async function syncMatches() {
     
     if (error) {
       throw new Error(`Failed to fetch matches: ${error}`);
+    }
+
+    // Get latest odds
+    const { data: apiOdds, error: oddsError } = await oddsApi.getLatestOdds();
+    if (oddsError) {
+      console.error('Failed to fetch odds:', oddsError);
     }
 
     // Process each match
@@ -31,8 +38,12 @@ export async function syncMatches() {
         },
       });
 
+      // Find odds for this match
+      const matchOdds = apiOdds?.find((o: any) => o.event_id === apiMatch.id);
+      const transformedOdds = matchOdds ? oddsApi.transformOdds(matchOdds) : null;
+
       // Update or create match
-      await prisma.match.upsert({
+      const match = await prisma.match.upsert({
         where: { id: apiMatch.id.toString() },
         update: {
           status: apiMatch.status,
@@ -49,6 +60,19 @@ export async function syncMatches() {
           competition: apiMatch.competition.name,
         },
       });
+
+      // Update odds if available
+      if (transformedOdds) {
+        await prisma.odds.create({
+          data: {
+            matchId: match.id,
+            homeWin: transformedOdds.homeWin,
+            draw: transformedOdds.draw,
+            awayWin: transformedOdds.awayWin,
+            timestamp: transformedOdds.timestamp,
+          },
+        });
+      }
     }
 
     console.log(`Synced ${apiMatches.matches.length} matches`);
@@ -71,16 +95,36 @@ export async function syncLiveScores() {
       throw new Error(`Failed to fetch live matches: ${error}`);
     }
 
-    // Update scores for live matches
+    // Update scores and odds for live matches
     for (const match of liveMatches.matches) {
-      await prisma.match.update({
-        where: { id: match.id.toString() },
-        data: {
-          status: match.status,
-          homeScore: match.score.fullTime.home,
-          awayScore: match.score.fullTime.away,
-        },
-      });
+      // Get latest odds for this match
+      const { data: matchOdds } = await oddsApi.getMatchOdds(match.id);
+      const transformedOdds = oddsApi.transformOdds(matchOdds);
+
+      await prisma.$transaction([
+        // Update match scores
+        prisma.match.update({
+          where: { id: match.id.toString() },
+          data: {
+            status: match.status,
+            homeScore: match.score.fullTime.home,
+            awayScore: match.score.fullTime.away,
+          },
+        }),
+
+        // Add new odds if available
+        transformedOdds
+          ? prisma.odds.create({
+              data: {
+                matchId: match.id.toString(),
+                homeWin: transformedOdds.homeWin,
+                draw: transformedOdds.draw,
+                awayWin: transformedOdds.awayWin,
+                timestamp: transformedOdds.timestamp,
+              },
+            })
+          : undefined,
+      ]);
     }
 
     return { success: true };
