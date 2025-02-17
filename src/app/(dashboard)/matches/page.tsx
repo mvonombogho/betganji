@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { MatchList } from '@/components/matches/match-list';
 import { MatchFilters } from '@/components/matches/match-filters';
 import { MatchSearch } from '@/components/matches/match-search';
+import { MatchSort } from '@/components/matches/match-sort';
 import { Pagination } from '@/components/ui/pagination';
 
 const ITEMS_PER_PAGE = 10;
@@ -12,10 +13,44 @@ interface MatchesPageProps {
     status?: string;
     q?: string;
     page?: string;
+    sort?: string;
+    order?: 'asc' | 'desc';
   };
 }
 
-async function getMatches(status?: string, search?: string, page: number = 1) {
+function getOrderBy(sort: string = 'datetime', order: 'asc' | 'desc' = 'asc') {
+  switch (sort) {
+    case 'homeOdds':
+      return [
+        {
+          odds: {
+            homeWin: order,
+          },
+        },
+        { datetime: 'asc' },
+      ];
+    case 'awayOdds':
+      return [
+        {
+          odds: {
+            awayWin: order,
+          },
+        },
+        { datetime: 'asc' },
+      ];
+    case 'datetime':
+    default:
+      return [{ datetime: order }];
+  }
+}
+
+async function getMatches(
+  status?: string,
+  search?: string,
+  page: number = 1,
+  sort?: string,
+  order: 'asc' | 'desc' = 'asc'
+) {
   const where: any = {};
 
   // Add status filter
@@ -55,7 +90,7 @@ async function getMatches(status?: string, search?: string, page: number = 1) {
   const totalCount = await prisma.match.count({ where });
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
-  // Get paginated matches
+  // Get paginated and sorted matches
   const matches = await prisma.match.findMany({
     where,
     include: {
@@ -68,11 +103,7 @@ async function getMatches(status?: string, search?: string, page: number = 1) {
         take: 1,
       },
     },
-    orderBy: [
-      {
-        datetime: 'asc',
-      },
-    ],
+    orderBy: getOrderBy(sort, order),
     skip: (page - 1) * ITEMS_PER_PAGE,
     take: ITEMS_PER_PAGE,
   });
@@ -89,7 +120,9 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
   const { matches, totalPages, currentPage: page } = await getMatches(
     searchParams.status,
     searchParams.q,
-    currentPage
+    currentPage,
+    searchParams.sort,
+    searchParams.order as 'asc' | 'desc'
   );
 
   return (
@@ -99,12 +132,14 @@ export default async function MatchesPage({ searchParams }: MatchesPageProps) {
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <MatchSearch />
           </div>
-          <MatchFilters />
+          <MatchSort />
         </div>
+
+        <MatchFilters />
 
         <Suspense fallback={<div>Loading matches...</div>}>
           <MatchList matches={matches} />
