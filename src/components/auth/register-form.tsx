@@ -5,28 +5,49 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
+interface FormData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
 export function RegisterForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
+  const validateForm = () => {
+    if (!formData.email || !formData.password || !formData.confirmPassword) {
+      setError('All fields are required');
+      return false;
+    }
 
-    // Validate passwords match
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return false;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
-      setIsLoading(false);
-      return;
+      return false;
     }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    setError('');
 
     try {
       const response = await fetch('/api/auth/register', {
@@ -63,6 +84,7 @@ export function RegisterForm() {
       )}
 
       <div className="space-y-4">
+        {/* Name Input */}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
             Name
@@ -70,13 +92,13 @@ export function RegisterForm() {
           <input
             id="name"
             type="text"
-            required
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
         </div>
 
+        {/* Email Input */}
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
             Email
@@ -91,6 +113,7 @@ export function RegisterForm() {
           />
         </div>
 
+        {/* Password Input */}
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
             Password
@@ -105,6 +128,7 @@ export function RegisterForm() {
           />
         </div>
 
+        {/* Confirm Password Input */}
         <div>
           <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
             Confirm Password
