@@ -50,6 +50,7 @@ export function LoginForm() {
       )}
 
       <div className="space-y-4">
+        {/* Email Input */}
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
             Email
@@ -64,6 +65,7 @@ export function LoginForm() {
           />
         </div>
 
+        {/* Password Input */}
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
             Password
