@@ -1,83 +1,67 @@
-'use client'
+import { formatDate } from '@/lib/utils';
 
-import { Prediction } from "@/types/prediction"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { formatDistanceToNow } from "date-fns"
+type Prediction = {
+  id: string;
+  prediction: string;
+  confidence: number;
+  reasoning: string;
+  createdAt: Date;
+  match: {
+    homeTeam: { name: string };
+    awayTeam: { name: string };
+    datetime: Date;
+  };
+};
 
 interface PredictionListProps {
-  predictions: Prediction[]
+  predictions: Prediction[];
 }
-
-const statusColors = {
-  pending: "bg-yellow-500",
-  won: "bg-green-500",
-  lost: "bg-red-500",
-  void: "bg-gray-500",
-} as const
 
 export function PredictionList({ predictions }: PredictionListProps) {
   if (!predictions.length) {
     return (
-      <div className="text-center py-12">
-        <h3 className="text-lg font-medium">No predictions yet</h3>
-        <p className="text-muted-foreground">
-          Start by creating your first prediction
-        </p>
+      <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+        <p className="text-gray-500">No predictions yet</p>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-4">
       {predictions.map((prediction) => (
-        <Card key={prediction.id}>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">
-                {prediction.prediction}
-              </CardTitle>
-              <Badge 
-                variant="secondary"
-                className={statusColors[prediction.status]}
-              >
-                {prediction.status.toUpperCase()}
-              </Badge>
+        <div
+          key={prediction.id}
+          className="bg-white rounded-lg shadow-sm p-6"
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="font-medium">
+                {prediction.match.homeTeam.name} vs {prediction.match.awayTeam.name}
+              </h3>
+              <p className="text-sm text-gray-500">
+                Match date: {formatDate(prediction.match.datetime)}
+              </p>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Type:</span>
-                <span className="font-medium">
-                  {prediction.type.split("_").map(word => 
-                    word.charAt(0).toUpperCase() + word.slice(1)
-                  ).join(" ")}
-                </span>
+            <div className="text-right">
+              <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {prediction.prediction.replace('_', ' ')}
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Odds:</span>
-                <span className="font-medium">{prediction.odds}</span>
-              </div>
-              {prediction.stake && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Stake:</span>
-                  <span className="font-medium">{prediction.stake}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Confidence:</span>
-                <span className="font-medium">{prediction.confidence}%</span>
-              </div>
-              <div className="mt-2 pt-2 border-t">
-                <p className="text-muted-foreground">
-                  Created {formatDistanceToNow(prediction.createdAt, { addSuffix: true })}
-                </p>
-              </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Confidence: {(prediction.confidence * 100).toFixed(1)}%
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          <div className="text-sm text-gray-600">
+            <p className="font-medium mb-1">Reasoning:</p>
+            <p>{prediction.reasoning}</p>
+          </div>
+
+          <div className="mt-4 text-xs text-gray-500">
+            Predicted on: {formatDate(prediction.createdAt)}
+          </div>
+        </div>
       ))}
     </div>
-  )
+  );
 }
