@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { formatDate } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 async function getPredictionDetails(id: string) {
   const prediction = await prisma.prediction.findUnique({
@@ -28,17 +29,49 @@ async function getPredictionDetails(id: string) {
   return prediction;
 }
 
+function getPredictionStatus(prediction: Awaited<ReturnType<typeof getPredictionDetails>>) {
+  if (prediction.match.status !== 'FINISHED') {
+    return {
+      label: 'Pending',
+      color: 'bg-yellow-100 text-yellow-800'
+    };
+  }
+
+  if (prediction.isCorrect === true) {
+    return {
+      label: 'Correct',
+      color: 'bg-green-100 text-green-800'
+    };
+  }
+
+  if (prediction.isCorrect === false) {
+    return {
+      label: 'Incorrect',
+      color: 'bg-red-100 text-red-800'
+    };
+  }
+
+  return {
+    label: 'Unknown',
+    color: 'bg-gray-100 text-gray-800'
+  };
+}
+
 export default async function PredictionPage({
   params
 }: {
   params: { id: string }
 }) {
   const prediction = await getPredictionDetails(params.id);
+  const status = getPredictionStatus(prediction);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Prediction Details</h1>
+        <div className={`px-3 py-1 rounded-full text-sm font-medium ${status.color}`}>
+          {status.label}
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -60,6 +93,15 @@ export default async function PredictionPage({
                 {formatDate(prediction.match.datetime)}
               </div>
             </div>
+
+            {prediction.match.status === 'FINISHED' && (
+              <div>
+                <div className="text-sm text-gray-500">Final Score</div>
+                <div className="font-medium">
+                  {prediction.match.homeScore} - {prediction.match.awayScore}
+                </div>
+              </div>
+            )}
 
             {prediction.match.odds[0] && (
               <div>
