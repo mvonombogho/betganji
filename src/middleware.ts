@@ -1,47 +1,49 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyAuth } from '@/lib/auth/verify';
+import { verifyToken } from './lib/auth/jwt';
 
 // Paths that don't require authentication
 const publicPaths = [
+  '/',
   '/login',
   '/register',
   '/api/auth/login',
   '/api/auth/register'
 ];
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
+export function middleware(request: NextRequest) {
   // Check if the path is public
-  if (publicPaths.some(path => pathname.startsWith(path))) {
+  if (publicPaths.some(path => request.nextUrl.pathname === path)) {
     return NextResponse.next();
   }
 
-  // Verify authentication
-  const authResult = await verifyAuth(request);
-  
-  if (!authResult.success) {
-    // Redirect to login for page requests
-    if (!pathname.startsWith('/api')) {
-      return NextResponse.redirect(new URL('/login', request.url));
+  // Get token from cookies
+  const token = request.cookies.get('auth-token')?.value;
+
+  if (!token) {
+    // For API routes, return 401
+    if (request.nextUrl.pathname.startsWith('/api/')) {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
-    
-    // Return 401 for API requests
-    return new NextResponse(
-      JSON.stringify({ error: 'Authentication required' }),
-      {
-        status: 401,
-        headers: { 'content-type': 'application/json' }
-      }
-    );
+    // For pages, redirect to login
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Add user info to headers for API routes
-  if (pathname.startsWith('/api')) {
+  // Verify token
+  const { valid, userId } = verifyToken(token);
+
+  if (!valid) {
+    // Clear invalid token
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.delete('auth-token');
+    return response;
+  }
+
+  // Add user ID to headers for API routes
+  if (request.nextUrl.pathname.startsWith('/api/')) {
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', authResult.userId);
-    
+    requestHeaders.set('x-user-id', userId!);
+
     return NextResponse.next({
       request: {
         headers: requestHeaders,
