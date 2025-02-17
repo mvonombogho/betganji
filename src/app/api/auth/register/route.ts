@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
+import { hashPassword } from '@/lib/auth/password';
 import { signToken } from '@/lib/auth/jwt';
 
 export async function POST(req: Request) {
   try {
     const { email, password, name } = await req.json();
+
+    // Validate input
+    if (!email || !password) {
+      return new NextResponse(
+        'Email and password are required',
+        { status: 400 }
+      );
+    }
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
@@ -20,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashPassword(password);
 
     // Create user
     const user = await prisma.user.create({
