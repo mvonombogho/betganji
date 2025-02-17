@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
 
 type Prediction = {
@@ -29,9 +30,10 @@ export function PredictionList({ predictions }: PredictionListProps) {
   return (
     <div className="space-y-4">
       {predictions.map((prediction) => (
-        <div
+        <Link
           key={prediction.id}
-          className="bg-white rounded-lg shadow-sm p-6"
+          href={`/predictions/${prediction.id}`}
+          className="block bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow"
         >
           <div className="flex justify-between items-start mb-4">
             <div>
@@ -52,15 +54,16 @@ export function PredictionList({ predictions }: PredictionListProps) {
             </div>
           </div>
 
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 line-clamp-2">
             <p className="font-medium mb-1">Reasoning:</p>
             <p>{prediction.reasoning}</p>
           </div>
 
-          <div className="mt-4 text-xs text-gray-500">
-            Predicted on: {formatDate(prediction.createdAt)}
+          <div className="mt-4 text-xs text-gray-500 flex justify-between items-center">
+            <span>Predicted on: {formatDate(prediction.createdAt)}</span>
+            <span className="text-blue-600">View details →</span>
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );
