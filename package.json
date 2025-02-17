@@ -6,13 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "db:push": "prisma db push",
-    "db:generate": "prisma generate"
+    "lint": "next lint"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.17.1",
     "@prisma/client": "^5.10.0",
+    "@upstash/redis": "^1.28.4",
     "@hookform/resolvers": "^3.3.4",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
