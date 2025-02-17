@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ErrorMessage } from '@/components/ui/error-message';
 
 interface GetPredictionProps {
   matchId: string;
@@ -14,20 +16,24 @@ interface GetPredictionProps {
   };
 }
 
-export function GetPrediction({ matchId, homeTeam, awayTeam, odds }: GetPredictionProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [prediction, setPrediction] = useState<{
+type PredictionState = {
+  status: 'idle' | 'loading' | 'error' | 'success';
+  error?: string;
+  data?: {
     outcome: string;
     confidence: number;
     reasoning: string;
-  } | null>(null);
+  };
+};
+
+export function GetPrediction({ matchId, homeTeam, awayTeam, odds }: GetPredictionProps) {
+  const [predictionState, setPredictionState] = useState<PredictionState>({
+    status: 'idle'
+  });
 
   const handleGetPrediction = async () => {
     try {
-      setIsLoading(true);
-      setError('');
-      setPrediction(null);
+      setPredictionState({ status: 'loading' });
 
       const response = await fetch('/api/predictions', {
         method: 'POST',
@@ -39,60 +45,86 @@ export function GetPrediction({ matchId, homeTeam, awayTeam, odds }: GetPredicti
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get prediction');
+        throw new Error(response.status === 429 
+          ? 'Too many requests. Please try again later.'
+          : 'Failed to get prediction');
       }
 
       const data = await response.json();
-      setPrediction({
-        outcome: data.prediction.prediction,
-        confidence: data.prediction.confidence,
-        reasoning: data.prediction.reasoning,
+      setPredictionState({
+        status: 'success',
+        data: {
+          outcome: data.prediction.prediction,
+          confidence: data.prediction.confidence,
+          reasoning: data.prediction.reasoning,
+        }
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to get prediction');
-    } finally {
-      setIsLoading(false);
+      setPredictionState({
+        status: 'error',
+        error: err instanceof Error ? err.message : 'An error occurred'
+      });
     }
   };
 
-  return (
-    <div className="space-y-4">
-      {error && (
-        <div className="p-3 bg-red-50 text-red-700 rounded-md text-sm">
-          {error}
-        </div>
-      )}
+  const retry = () => {
+    handleGetPrediction();
+  };
 
-      {prediction ? (
-        <div className="space-y-3">
-          <div className="p-4 bg-blue-50 rounded-md">
-            <div className="font-semibold mb-1">
-              Prediction: {prediction.outcome.replace('_', ' ')}
-            </div>
-            <div className="text-sm text-gray-600 mb-2">
-              Confidence: {(prediction.confidence * 100).toFixed(1)}%
-            </div>
-            <div className="text-sm text-gray-600">
-              {prediction.reasoning}
-            </div>
+  if (predictionState.status === 'loading') {
+    return (
+      <div className="text-center py-8">
+        <LoadingSpinner />
+        <p className="mt-2 text-sm text-gray-500">Analyzing match data...</p>
+      </div>
+    );
+  }
+
+  if (predictionState.status === 'error') {
+    return (
+      <ErrorMessage 
+        message={predictionState.error || 'Failed to get prediction'}
+        retry={retry}
+      />
+    );
+  }
+
+  if (predictionState.status === 'success' && predictionState.data) {
+    return (
+      <div className="space-y-4">
+        <div className="p-4 bg-blue-50 rounded-md">
+          <div className="font-semibold mb-2">
+            Prediction: {predictionState.data.outcome.replace('_', ' ')}
           </div>
-          <Button
-            onClick={() => setPrediction(null)}
-            variant="outline"
-            className="w-full"
-          >
-            Get New Prediction
-          </Button>
+          <div className="text-sm text-gray-600 mb-2">
+            Confidence: {(predictionState.data.confidence * 100).toFixed(1)}%
+          </div>
+          <div className="text-sm text-gray-600">
+            {predictionState.data.reasoning}
+          </div>
         </div>
-      ) : (
         <Button
-          onClick={handleGetPrediction}
-          disabled={isLoading}
+          onClick={() => setPredictionState({ status: 'idle' })}
+          variant="outline"
           className="w-full"
         >
-          {isLoading ? 'Analyzing...' : 'Get AI Prediction'}
+          Get New Prediction
         </Button>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Button
+        onClick={handleGetPrediction}
+        className="w-full"
+      >
+        Get AI Prediction
+      </Button>
+      <p className="text-xs text-gray-500 text-center">
+        Our AI will analyze the match data and current odds
+      </p>
     </div>
   );
 }
