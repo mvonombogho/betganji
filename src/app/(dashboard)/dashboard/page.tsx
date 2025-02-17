@@ -1,35 +1,72 @@
 import { prisma } from '@/lib/db';
+import { getServerSession } from '@/lib/auth/verify';
+import { redirect } from 'next/navigation';
+import { StatsCards } from '@/components/dashboard/stats-cards';
+import { RecentPredictions } from '@/components/dashboard/recent-predictions';
 
 async function getDashboardData() {
-  const upcomingMatches = await prisma.match.findMany({
+  const session = await getServerSession();
+  if (!session?.userId) {
+    redirect('/login');
+  }
+
+  // Get user's predictions
+  const predictions = await prisma.prediction.findMany({
     where: {
-      datetime: {
-        gte: new Date(),
-      },
+      userId: session.userId,
     },
     include: {
-      homeTeam: true,
-      awayTeam: true,
-      odds: {
-        orderBy: {
-          timestamp: 'desc',
+      match: {
+        include: {
+          homeTeam: true,
+          awayTeam: true,
         },
-        take: 1,
       },
     },
     orderBy: {
-      datetime: 'asc',
+      createdAt: 'desc',
     },
     take: 5,
   });
 
+  // Calculate stats
+  const totalPredictions = await prisma.prediction.count({
+    where: {
+      userId: session.userId,
+    },
+  });
+
+  const completedPredictions = await prisma.prediction.count({
+    where: {
+      userId: session.userId,
+      isCorrect: { not: null },
+    },
+  });
+
+  const correctPredictions = await prisma.prediction.count({
+    where: {
+      userId: session.userId,
+      isCorrect: true,
+    },
+  });
+
+  const accuracy = completedPredictions > 0
+    ? (correctPredictions / completedPredictions) * 100
+    : 0;
+
   return {
-    upcomingMatches,
+    predictions,
+    stats: {
+      totalPredictions,
+      completedPredictions,
+      correctPredictions,
+      accuracy,
+    },
   };
 }
 
 export default async function DashboardPage() {
-  const { upcomingMatches } = await getDashboardData();
+  const { predictions, stats } = await getDashboardData();
 
   return (
     <div className="space-y-6">
@@ -37,48 +74,14 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <StatsCards stats={stats} />
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <RecentPredictions predictions={predictions} />
+
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <h2 className="text-lg font-semibold mb-4">Upcoming Matches</h2>
-          <div className="space-y-4">
-            {upcomingMatches.map((match) => (
-              <div
-                key={match.id}
-                className="p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
-              >
-                <div className="text-sm text-gray-500 mb-1">
-                  {new Date(match.datetime).toLocaleDateString()}
-                </div>
-                <div className="font-medium">
-                  {match.homeTeam.name} vs {match.awayTeam.name}
-                </div>
-                {match.odds[0] && (
-                  <div className="text-sm text-gray-500 mt-1">
-                    Odds: {match.odds[0].homeWin.toFixed(2)} - {match.odds[0].draw.toFixed(2)} - {match.odds[0].awayWin.toFixed(2)}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-lg font-semibold mb-4">Recent Predictions</h2>
-          <p className="text-gray-500">No predictions yet</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-lg font-semibold mb-4">Quick Stats</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-gray-500">Total Predictions</div>
-              <div className="text-2xl font-bold">0</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-500">Accuracy</div>
-              <div className="text-2xl font-bold">-</div>
-            </div>
-          </div>
+          <p className="text-gray-500">Match listing coming soon</p>
         </div>
       </div>
     </div>
