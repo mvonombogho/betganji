@@ -1,51 +1,23 @@
 import { getServerSession } from '@/lib/auth/verify';
 import { prisma } from '@/lib/db';
 import { redirect } from 'next/navigation';
-import { UserStats } from '@/components/profile/user-stats';
-import { PredictionHistory } from '@/components/profile/prediction-history';
 
-async function getUserData(userId: string) {
-  const [user, predictions] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-    }),
-    prisma.prediction.findMany({
-      where: { userId },
-      include: {
-        match: {
-          include: {
-            homeTeam: true,
-            awayTeam: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    }),
-  ]);
+async function getUserProfile(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      createdAt: true,
+    },
+  });
 
   if (!user) {
     redirect('/login');
   }
 
-  // Calculate user statistics
-  const stats = {
-    totalPredictions: predictions.length,
-    completedPredictions: predictions.filter(p => p.isCorrect !== null).length,
-    correctPredictions: predictions.filter(p => p.isCorrect === true).length,
-    accuracy: 0,
-  };
-
-  stats.accuracy = stats.completedPredictions > 0
-    ? (stats.correctPredictions / stats.completedPredictions) * 100
-    : 0;
-
-  return {
-    user,
-    predictions,
-    stats,
-  };
+  return user;
 }
 
 export default async function ProfilePage() {
@@ -54,27 +26,37 @@ export default async function ProfilePage() {
     redirect('/login');
   }
 
-  const { user, predictions, stats } = await getUserData(session.userId);
+  const user = await getUserProfile(session.userId);
 
   return (
     <div className="space-y-6">
       {/* Profile Header */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h1 className="text-2xl font-bold mb-2">
-          Profile
-        </h1>
-        <p className="text-gray-500">
-          {user.name || user.email}
-        </p>
+        <h1 className="text-2xl font-bold mb-2">Profile</h1>
+        <div className="space-y-2">
+          <p className="text-gray-600">
+            <span className="font-medium">Name:</span> {user.name || 'Not set'}
+          </p>
+          <p className="text-gray-600">
+            <span className="font-medium">Email:</span> {user.email}
+          </p>
+          <p className="text-gray-600">
+            <span className="font-medium">Member since:</span>{' '}
+            {new Date(user.createdAt).toLocaleDateString()}
+          </p>
+        </div>
       </div>
 
-      {/* User Statistics */}
-      <UserStats stats={stats} />
-
-      {/* Prediction History */}
+      {/* Placeholder for Stats Overview */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-4">Prediction History</h2>
-        <PredictionHistory predictions={predictions} />
+        <h2 className="text-lg font-semibold mb-4">Statistics Overview</h2>
+        <p className="text-gray-500">Statistics will be displayed here</p>
+      </div>
+
+      {/* Placeholder for Prediction History */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h2 className="text-lg font-semibold mb-4">Recent Predictions</h2>
+        <p className="text-gray-500">Recent predictions will be displayed here</p>
       </div>
     </div>
   );
