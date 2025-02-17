@@ -1,25 +1,28 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { hashPassword } from '@/lib/auth/password';
+import bcrypt from 'bcryptjs';
+import { prisma } from '@/lib/db';
 import { signToken } from '@/lib/auth/jwt';
 
 export async function POST(req: Request) {
   try {
     const { email, password, name } = await req.json();
 
+    // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
 
     if (existingUser) {
-      return NextResponse.json(
-        { error: 'Email already exists' },
+      return new NextResponse(
+        'Email already registered',
         { status: 400 }
       );
     }
 
-    const hashedPassword = await hashPassword(password);
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Create user
     const user = await prisma.user.create({
       data: {
         email,
@@ -28,14 +31,22 @@ export async function POST(req: Request) {
       },
     });
 
+    // Generate token
     const token = signToken(user.id);
 
-    const response = NextResponse.json(
-      { user: { id: user.id, email: user.email, name: user.name } },
-      { status: 201 }
-    );
+    // Create response
+    const response = NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    });
 
-    response.cookies.set('auth-token', token, {
+    // Set cookie
+    response.cookies.set({
+      name: 'auth-token',
+      value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -43,9 +54,11 @@ export async function POST(req: Request) {
     });
 
     return response;
+
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
+    console.error('Registration error:', error);
+    return new NextResponse(
+      'Internal server error',
       { status: 500 }
     );
   }
