@@ -1,6 +1,8 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PerformanceChart } from './performance-chart';
+import { PerformanceSummary } from './performance-summary';
 
 interface DailyStats {
   date: string;
@@ -13,13 +15,25 @@ interface PerformanceTrendsProps {
   data: DailyStats[];
   timeRange: string;
   onTimeRangeChange: (value: string) => void;
+  isLoading?: boolean;
 }
 
 export function PerformanceTrends({ 
   data, 
   timeRange, 
-  onTimeRangeChange 
+  onTimeRangeChange,
+  isLoading = false
 }: PerformanceTrendsProps) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="h-96 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -40,7 +54,8 @@ export function PerformanceTrends({
         </Select>
       </CardHeader>
       <CardContent>
-        {/* Chart will go here */}
+        <PerformanceChart data={data} />
+        <PerformanceSummary data={data} />
       </CardContent>
     </Card>
   );
