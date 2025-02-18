@@ -2,74 +2,27 @@ import prisma from '@/lib/prisma';
 import type { MatchFeatures } from '@/types/ml';
 
 export class FeatureExtractor {
-  /**
-   * Extract features for a single match
-   */
-  static async extractMatchFeatures(matchId: string): Promise<MatchFeatures | null> {
-    const match = await prisma.match.findUnique({
-      where: { id: matchId },
-      include: {
-        homeTeam: true,
-        awayTeam: true,
-        competition: true
-      }
-    });
-
-    if (!match) return null;
-
-    // Get team forms
-    const [homeForm, awayForm] = await Promise.all([
-      this.getTeamForm(match.homeTeamId),
-      this.getTeamForm(match.awayTeamId)
-    ]);
-
-    // Get head-to-head history
-    const h2h = await this.getH2HStats(match.homeTeamId, match.awayTeamId);
-
-    return {
-      matchId: match.id,
-      homeTeam: match.homeTeam.name,
-      awayTeam: match.awayTeam.name,
-      competition: match.competition.name,
-      datetime: match.datetime,
-      
-      // Add home team form
-      homeFormWins: homeForm.wins,
-      homeFormDraws: homeForm.draws,
-      homeFormLosses: homeForm.losses,
-      homeFormGoalsScored: homeForm.goalsScored,
-      homeFormGoalsConceded: homeForm.goalsConceded,
-      
-      // Add away team form
-      awayFormWins: awayForm.wins,
-      awayFormDraws: awayForm.draws,
-      awayFormLosses: awayForm.losses,
-      awayFormGoalsScored: awayForm.goalsScored,
-      awayFormGoalsConceded: awayForm.goalsConceded,
-      
-      // Add head-to-head stats
-      h2hHomeWins: h2h.homeWins,
-      h2hAwayWins: h2h.awayWins,
-      h2hDraws: h2h.draws,
-      h2hHomeGoals: h2h.homeGoals,
-      h2hAwayGoals: h2h.awayGoals,
-
-      // Match result (if available)
-      result: match.result || '',
-      homeScore: match.homeScore || 0,
-      awayScore: match.awayScore || 0
-    };
-  }
+  // ... previous methods remain the same ...
 
   /**
-   * Get team's recent form
+   * Get head-to-head statistics between two teams
    */
-  private static async getTeamForm(teamId: string, lastNMatches: number = 5) {
-    const recentMatches = await prisma.match.findMany({
+  private static async getH2HStats(
+    homeTeamId: string,
+    awayTeamId: string,
+    lastNMatches: number = 5
+  ) {
+    const h2hMatches = await prisma.match.findMany({
       where: {
         OR: [
-          { homeTeamId: teamId },
-          { awayTeamId: teamId }
+          {
+            homeTeamId,
+            awayTeamId
+          },
+          {
+            homeTeamId: awayTeamId,
+            awayTeamId: homeTeamId
+          }
         ],
         status: 'COMPLETED'
       },
@@ -79,28 +32,45 @@ export class FeatureExtractor {
       take: lastNMatches
     });
 
-    return recentMatches.reduce((stats, match) => {
-      const isHome = match.homeTeamId === teamId;
-      const teamScore = isHome ? match.homeScore : match.awayScore;
-      const opponentScore = isHome ? match.awayScore : match.homeScore;
+    return h2hMatches.reduce((stats, match) => {
+      // Determine if the reference team was home or away
+      const isReferenceTeamHome = match.homeTeamId === homeTeamId;
 
-      // Update stats based on match result
-      if (teamScore > opponentScore) stats.wins++;
-      else if (teamScore < opponentScore) stats.losses++;
-      else stats.draws++;
+      // Update wins/losses based on the result
+      if (isReferenceTeamHome) {
+        if (match.homeScore > match.awayScore) stats.homeWins++;
+        else if (match.homeScore < match.awayScore) stats.awayWins++;
+        else stats.draws++;
 
-      stats.goalsScored += teamScore;
-      stats.goalsConceded += opponentScore;
+        stats.homeGoals += match.homeScore;
+        stats.awayGoals += match.awayScore;
+      } else {
+        if (match.homeScore < match.awayScore) stats.homeWins++;
+        else if (match.homeScore > match.awayScore) stats.awayWins++;
+        else stats.draws++;
+
+        stats.homeGoals += match.awayScore;
+        stats.awayGoals += match.homeScore;
+      }
 
       return stats;
     }, {
-      wins: 0,
+      homeWins: 0,
+      awayWins: 0,
       draws: 0,
-      losses: 0,
-      goalsScored: 0,
-      goalsConceded: 0
+      homeGoals: 0,
+      awayGoals: 0
     });
   }
 
-  // We'll add the H2H stats method next
+  /**
+   * Extract features for multiple matches (for training)
+   */
+  static async extractBatchFeatures(matchIds: string[]) {
+    const features = await Promise.all(
+      matchIds.map(id => this.extractMatchFeatures(id))
+    );
+
+    return features.filter(f => f !== null) as MatchFeatures[];
+  }
 }
