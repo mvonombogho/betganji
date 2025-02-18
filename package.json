@@ -4,11 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "docker:build": "docker build -t betganji .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env.production betganji",
+    "docker:compose": "docker-compose up -d",
+    "docker:compose:down": "docker-compose down",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "deploy": "npm run build && npm run db:migrate && npm run start"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.17.1",
@@ -30,18 +35,11 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.4.2",
-    "@testing-library/react": "^14.2.1",
-    "@testing-library/user-event": "^14.5.2",
-    "@types/jest": "^29.5.12",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.5",
-    "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
-    "ts-jest": "^29.1.2",
     "typescript": "^5",
     "autoprefixer": "^10.0.1",
     "postcss": "^8",
