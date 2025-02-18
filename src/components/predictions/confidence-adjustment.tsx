@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfidenceTooltip } from './confidence-tooltip';
 
 interface ConfidenceAdjustmentProps {
   mlConfidence: number;
@@ -22,7 +23,14 @@ export function ConfidenceAdjustment({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Confidence Analysis</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Confidence Analysis</CardTitle>
+          <ConfidenceTooltip 
+            mlConfidence={mlConfidence}
+            claudeAdjustment={claudeAdjustment}
+            finalConfidence={finalConfidence}
+          />
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
@@ -70,6 +78,13 @@ export function ConfidenceAdjustment({
                 style={{ width: finalWidth }}
               />
             </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {claudeAdjustment !== 0 && (
+                claudeAdjustment > 0
+                  ? 'Claude increased confidence based on additional factors'
+                  : 'Claude decreased confidence due to potential risks'
+              )}
+            </p>
           </div>
         </div>
       </CardContent>
