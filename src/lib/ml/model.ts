@@ -1,85 +1,123 @@
 import * as tf from '@tensorflow/tfjs';
+import { TrainingConfig, DEFAULT_TRAINING_CONFIG, TrainingCallbacks } from './training-config';
 
 export class PredictionModel {
   private model: tf.LayersModel | null = null;
   private isCompiled: boolean = false;
+  private trainingHistory: tf.History | null = null;
+
+  // Previous methods remain the same...
 
   /**
-   * Build model architecture
+   * Train the model
    */
-  private buildModel(): tf.LayersModel {
-    const model = tf.sequential();
+  async train(
+    features: number[][],
+    labels: number[][],
+    config: Partial<TrainingConfig> = {},
+    callbacks: TrainingCallbacks = {}
+  ) {
+    if (!this.model || !this.isCompiled) {
+      throw new Error('Model not initialized');
+    }
 
-    // Input layer - matches our feature count
-    model.add(tf.layers.dense({
-      units: 64,
-      activation: 'relu',
-      inputShape: [15], // Number of features we extract
-      kernelInitializer: 'glorotNormal',
-      kernelRegularizer: tf.regularizers.l2({ l2: 0.01 })
-    }));
+    // Merge with default config
+    const finalConfig = { ...DEFAULT_TRAINING_CONFIG, ...config };
 
-    // Add dropout to prevent overfitting
-    model.add(tf.layers.dropout({ rate: 0.3 }));
+    // Convert to tensors
+    const xs = tf.tensor2d(features);
+    const ys = tf.tensor2d(labels);
 
-    // Hidden layer 1
-    model.add(tf.layers.dense({
-      units: 32,
-      activation: 'relu',
-      kernelInitializer: 'glorotNormal',
-      kernelRegularizer: tf.regularizers.l2({ l2: 0.01 })
-    }));
+    // Setup callbacks
+    const tfCallbacks = [
+      tf.callbacks.earlyStopping({
+        monitor: 'val_loss',
+        patience: finalConfig.earlyStoppingPatience
+      })
+    ];
 
-    // Add dropout
-    model.add(tf.layers.dropout({ rate: 0.2 }));
+    if (callbacks.onEpochEnd) {
+      tfCallbacks.push({
+        onEpochEnd: async (epoch, logs) => {
+          callbacks.onEpochEnd!(epoch, logs);
+        }
+      });
+    }
 
-    // Hidden layer 2
-    model.add(tf.layers.dense({
-      units: 16,
-      activation: 'relu',
-      kernelInitializer: 'glorotNormal',
-      kernelRegularizer: tf.regularizers.l2({ l2: 0.01 })
-    }));
-
-    // Output layer - 3 classes (home win, draw, away win)
-    model.add(tf.layers.dense({
-      units: 3,
-      activation: 'softmax',
-      kernelInitializer: 'glorotNormal'
-    }));
-
-    return model;
-  }
-
-  /**
-   * Initialize and compile the model
-   */
-  async initialize() {
-    if (!this.model) {
-      this.model = this.buildModel();
-      
-      this.model.compile({
-        optimizer: tf.train.adam(0.001),
-        loss: 'categoricalCrossentropy',
-        metrics: ['accuracy']
+    // Train the model
+    try {
+      this.trainingHistory = await this.model.fit(xs, ys, {
+        batchSize: finalConfig.batchSize,
+        epochs: finalConfig.epochs,
+        validationSplit: finalConfig.validationSplit,
+        callbacks: tfCallbacks,
+        shuffle: true
       });
 
-      this.isCompiled = true;
+      if (callbacks.onTrainingEnd) {
+        callbacks.onTrainingEnd(this.trainingHistory);
+      }
+
+      return this.trainingHistory;
+    } finally {
+      // Clean up tensors
+      xs.dispose();
+      ys.dispose();
     }
   }
 
   /**
-   * Get model summary
+   * Make predictions
    */
-  getModelSummary(): string {
+  async predict(features: number[]): Promise<number[]> {
     if (!this.model) {
       throw new Error('Model not initialized');
     }
 
-    const summary: string[] = [];
-    this.model.summary(undefined, undefined, (line) => summary.push(line));
-    return summary.join('\n');
+    // Convert to tensor
+    const xs = tf.tensor2d([features]);
+
+    try {
+      // Get predictions
+      const predictions = await this.model.predict(xs) as tf.Tensor;
+      
+      // Convert to array
+      const probabilities = await predictions.data();
+      return Array.from(probabilities);
+    } finally {
+      // Clean up tensors
+      xs.dispose();
+    }
   }
 
-  // Training and prediction methods will be added next
+  /**
+   * Save model to browser storage
+   */
+  async saveModel(path: string) {
+    if (!this.model) {
+      throw new Error('Model not initialized');
+    }
+
+    await this.model.save(`localstorage://${path}`);
+  }
+
+  /**
+   * Load model from browser storage
+   */
+  async loadModel(path: string) {
+    try {
+      this.model = await tf.loadLayersModel(`localstorage://${path}`);
+      this.isCompiled = true;
+    } catch (error) {
+      console.error('Error loading model:', error);
+      throw new Error('Failed to load model');
+    }
+  }
+
+  /**
+   * Get training history
+   */
+  getTrainingHistory() {
+    return this.trainingHistory;
+  }
 }
