@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StatsCard } from './stats-card';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Card } from '@/components/ui/card';
+import { PerformanceChart } from './performance-chart';
+import { TimeRangeSelector } from './time-range-selector';
 import { Users, Target, Calendar, TrendingUp } from 'lucide-react';
 
 interface DashboardMetrics {
@@ -11,17 +11,36 @@ interface DashboardMetrics {
   processedMatches: number;
 }
 
+interface HistoricalMetric {
+  timestamp: string;
+  accuracy: number;
+  users: number;
+}
+
 export function MonitoringDashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [historicalData, setHistoricalData] = useState<HistoricalMetric[]>([]);
+  const [timeRange, setTimeRange] = useState('7');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchMetrics();
-    // Refresh metrics every 5 minutes
-    const interval = setInterval(fetchMetrics, 5 * 60 * 1000);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        await Promise.all([
+          fetchMetrics(),
+          fetchHistoricalData()
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timeRange]);
 
   const fetchMetrics = async () => {
     try {
@@ -29,36 +48,63 @@ export function MonitoringDashboard() {
         method: 'POST'
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch metrics');
-      }
+      if (!response.ok) throw new Error('Failed to fetch metrics');
 
       const data = await response.json();
       setMetrics(data);
       setError(null);
     } catch (err) {
-      setError('Error loading metrics');
+      setError('Error loading current metrics');
       console.error('Error fetching metrics:', err);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchHistoricalData = async () => {
+    try {
+      const response = await fetch(`/api/monitoring/history?days=${timeRange}`);
+      if (!response.ok) throw new Error('Failed to fetch historical data');
+
+      const data = await response.json();
+      setHistoricalData(data);
+    } catch (err) {
+      console.error('Error fetching historical data:', err);
+      setError('Error loading historical data');
     }
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-96">Loading metrics...</div>;
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-red-500 p-4">{error}</div>;
+    return (
+      <div className="p-4 bg-red-50 text-red-600 rounded-lg">
+        {error}
+      </div>
+    );
   }
 
   if (!metrics) {
-    return <div>No metrics available</div>;
+    return (
+      <div className="p-4 text-gray-500">
+        No metrics available
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">System Monitoring</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">System Monitoring</h1>
+        <TimeRangeSelector 
+          value={timeRange}
+          onChange={setTimeRange}
+        />
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
@@ -90,28 +136,10 @@ export function MonitoringDashboard() {
         />
       </div>
 
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Performance History</h2>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={[]} // TODO: Add historical performance data
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="timestamp" />
-              <YAxis />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="accuracy"
-                stroke="#8884d8"
-                name="Prediction Accuracy"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      <PerformanceChart 
+        data={historicalData}
+        timeRange={timeRange}
+      />
     </div>
   );
 }
