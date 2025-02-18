@@ -34,13 +34,25 @@ export class FeatureExtractor {
       datetime: match.datetime,
       
       // Add home team form
-      ...homeForm,
+      homeFormWins: homeForm.wins,
+      homeFormDraws: homeForm.draws,
+      homeFormLosses: homeForm.losses,
+      homeFormGoalsScored: homeForm.goalsScored,
+      homeFormGoalsConceded: homeForm.goalsConceded,
       
       // Add away team form
-      ...awayForm,
+      awayFormWins: awayForm.wins,
+      awayFormDraws: awayForm.draws,
+      awayFormLosses: awayForm.losses,
+      awayFormGoalsScored: awayForm.goalsScored,
+      awayFormGoalsConceded: awayForm.goalsConceded,
       
       // Add head-to-head stats
-      ...h2h,
+      h2hHomeWins: h2h.homeWins,
+      h2hAwayWins: h2h.awayWins,
+      h2hDraws: h2h.draws,
+      h2hHomeGoals: h2h.homeGoals,
+      h2hAwayGoals: h2h.awayGoals,
 
       // Match result (if available)
       result: match.result || '',
@@ -49,5 +61,46 @@ export class FeatureExtractor {
     };
   }
 
-  // We'll add more methods in the next chunks
+  /**
+   * Get team's recent form
+   */
+  private static async getTeamForm(teamId: string, lastNMatches: number = 5) {
+    const recentMatches = await prisma.match.findMany({
+      where: {
+        OR: [
+          { homeTeamId: teamId },
+          { awayTeamId: teamId }
+        ],
+        status: 'COMPLETED'
+      },
+      orderBy: {
+        datetime: 'desc'
+      },
+      take: lastNMatches
+    });
+
+    return recentMatches.reduce((stats, match) => {
+      const isHome = match.homeTeamId === teamId;
+      const teamScore = isHome ? match.homeScore : match.awayScore;
+      const opponentScore = isHome ? match.awayScore : match.homeScore;
+
+      // Update stats based on match result
+      if (teamScore > opponentScore) stats.wins++;
+      else if (teamScore < opponentScore) stats.losses++;
+      else stats.draws++;
+
+      stats.goalsScored += teamScore;
+      stats.goalsConceded += opponentScore;
+
+      return stats;
+    }, {
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      goalsScored: 0,
+      goalsConceded: 0
+    });
+  }
+
+  // We'll add the H2H stats method next
 }
