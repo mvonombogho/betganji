@@ -1,67 +1,27 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyToken } from './lib/auth/jwt';
+import { metrics } from '@/lib/monitoring/metrics';
+import logger from '@/lib/monitoring/logger';
 
-// Paths that don't require authentication
-const publicPaths = [
-  '/',
-  '/login',
-  '/register',
-  '/api/auth/login',
-  '/api/auth/register'
-];
+export async function middleware(request: NextRequest) {
+  const startTime = Date.now();
+  const response = NextResponse.next();
 
-export function middleware(request: NextRequest) {
-  // Check if the path is public
-  if (publicPaths.some(path => request.nextUrl.pathname === path)) {
-    return NextResponse.next();
-  }
+  // Log request
+  logger.info({
+    method: request.method,
+    path: request.nextUrl.pathname,
+    ip: request.ip,
+    userAgent: request.headers.get('user-agent'),
+  });
 
-  // Get token from cookies
-  const token = request.cookies.get('auth-token')?.value;
+  // Record API latency
+  const latency = Date.now() - startTime;
+  metrics.apiLatency.set({ endpoint: request.nextUrl.pathname }, latency);
 
-  if (!token) {
-    // For API routes, return 401
-    if (request.nextUrl.pathname.startsWith('/api/')) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-    // For pages, redirect to login
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // Verify token
-  const { valid, userId } = verifyToken(token);
-
-  if (!valid) {
-    // Clear invalid token
-    const response = NextResponse.redirect(new URL('/login', request.url));
-    response.cookies.delete('auth-token');
-    return response;
-  }
-
-  // Add user ID to headers for API routes
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', userId!);
-
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
-  }
-
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: '/api/:path*',
 };
