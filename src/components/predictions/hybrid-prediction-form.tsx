@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ConfidenceAdjustment } from './confidence-adjustment';
 import { ClaudeAnalysis } from './claude-analysis';
+import { PredictionResult } from './prediction-result';
 
 interface HybridPredictionFormProps {
   matchId: string;
@@ -61,33 +62,40 @@ export function HybridPredictionForm({
 
   return (
     <div className={`space-y-6 ${className}`}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Get Prediction</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="text-center font-medium">
-              {homeTeam} vs {awayTeam}
+      {!prediction ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Get Prediction</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="text-center font-medium">
+                {homeTeam} vs {awayTeam}
+              </div>
+
+              <Button
+                onClick={getPrediction}
+                className="w-full"
+                disabled={loading}
+              >
+                {loading ? 'Analyzing...' : 'Get Prediction'}
+              </Button>
+
+              {error && (
+                <div className="text-sm text-red-500">{error}</div>
+              )}
             </div>
-
-            <Button
-              onClick={getPrediction}
-              className="w-full"
-              disabled={loading}
-            >
-              {loading ? 'Analyzing...' : 'Get Prediction'}
-            </Button>
-
-            {error && (
-              <div className="text-sm text-red-500">{error}</div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {prediction && (
+          </CardContent>
+        </Card>
+      ) : (
         <>
+          <PredictionResult 
+            result={prediction.result}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+            confidence={prediction.finalConfidence}
+          />
+
           <ConfidenceAdjustment 
             mlConfidence={prediction.mlConfidence}
             claudeAdjustment={prediction.claudeAdjustment}
@@ -95,6 +103,14 @@ export function HybridPredictionForm({
           />
 
           <ClaudeAnalysis analysis={prediction.analysis} />
+
+          <Button
+            onClick={() => setPrediction(null)}
+            variant="outline"
+            className="w-full"
+          >
+            Get Another Prediction
+          </Button>
         </>
       )}
     </div>
