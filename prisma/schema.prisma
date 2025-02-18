@@ -1,30 +1,24 @@
-generator client {
-  provider = "prisma-client-js"
+// Existing models...
+
+model NotificationSettings {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  
+  // Email notifications
+  matchAlerts         Boolean @default(true)
+  predictionResults   Boolean @default(true)
+  passwordReset       Boolean @default(true)
+  
+  // Preferences
+  emailFrequency     String  @default("instant") // instant, daily, weekly
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
-datasource db {
-  provider = "mongodb"
-  url      = env("DATABASE_URL")
-}
-
+// Add relation to User model
 model User {
-  id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  email         String       @unique
-  name          String?
-  password      String
-  predictions   Prediction[]
-  resetToken    ResetToken?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  // ... existing fields
+  notificationSettings NotificationSettings?
 }
-
-model ResetToken {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  token     String   @unique
-  userId    String   @db.ObjectId
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-}
-
-// ... rest of your existing models ...
