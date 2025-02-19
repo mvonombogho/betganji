@@ -1,43 +1,113 @@
-import { NextResponse } from 'next/server';
-import { generatePrediction } from '@/lib/services/prediction-service';
-import { getServerSession } from '@/lib/auth/verify';
+import { NextRequest } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { ClaudeClient } from '@/lib/ai/claude/client';
+import { prisma } from '@/lib/db';
 
-export async function POST(req: Request) {
+const claude = new ClaudeClient();
+
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession();
-    if (!session?.userId) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    
+    if (!session?.user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { matchId } = await req.json();
+    const body = await request.json();
+    const { matchId } = body;
 
     if (!matchId) {
-      return new NextResponse('Match ID is required', { status: 400 });
+      return Response.json({ error: 'Match ID is required' }, { status: 400 });
     }
 
-    // Check for existing recent prediction
-    const existingPrediction = await prisma.prediction.findFirst({
-      where: {
-        matchId,
-        userId: session.userId,
-        createdAt: {
-          gte: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes
+    // Get match data with related information
+    const match = await prisma.match.findUnique({
+      where: { id: matchId },
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        competition: true,
+        odds: {
+          orderBy: { timestamp: 'desc' },
+          take: 1,
         },
       },
     });
 
-    if (existingPrediction) {
-      return NextResponse.json(existingPrediction);
+    if (!match) {
+      return Response.json({ error: 'Match not found' }, { status: 404 });
     }
 
-    // Generate new prediction
-    const prediction = await generatePrediction(matchId, session.userId);
-    return NextResponse.json(prediction);
+    // Get the prediction from Claude
+    const insights = await claude.generatePrediction({
+      match,
+      odds: match.odds[0],
+    });
+
+    // Save the prediction
+    const prediction = await prisma.prediction.create({
+      data: {
+        userId: session.user.id,
+        matchId,
+        prediction: insights.recommendedBets[0]?.type || 'NO_BET',
+        confidence: insights.confidenceScore,
+        reasoning: insights.factors.join('\n'),
+        aiSuggestion: JSON.stringify(insights),
+      },
+    });
+
+    return Response.json({
+      success: true,
+      prediction,
+      insights,
+    });
 
   } catch (error) {
-    console.error('Prediction error:', error);
-    return new NextResponse(
-      'Failed to generate prediction',
+    console.error('Error generating prediction:', error);
+    return Response.json(
+      { error: 'Failed to generate prediction' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession();
+    
+    if (!session?.user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const matchId = searchParams.get('matchId');
+
+    const where = matchId 
+      ? { userId: session.user.id, matchId }
+      : { userId: session.user.id };
+
+    const predictions = await prisma.prediction.findMany({
+      where,
+      include: {
+        match: {
+          include: {
+            homeTeam: true,
+            awayTeam: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return Response.json({
+      success: true,
+      predictions,
+    });
+
+  } catch (error) {
+    console.error('Error fetching predictions:', error);
+    return Response.json(
+      { error: 'Failed to fetch predictions' },
       { status: 500 }
     );
   }
