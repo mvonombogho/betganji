@@ -5,10 +5,11 @@ export function formatDate(date: Date): string {
     day: 'numeric',
     hour: 'numeric',
     minute: 'numeric',
-  }).format(new Date(date));
+    hour12: true
+  }).format(date);
 }
 
-export function getDateString(date: Date = new Date()): string {
+export function formatISODate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
@@ -16,4 +17,8 @@ export function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
+}
+
+export function subtractDays(date: Date, days: number): Date {
+  return addDays(date, -days);
 }
