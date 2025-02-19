@@ -1,26 +1,29 @@
-import { NextResponse } from 'next/server';
-import { OddsService } from '@/lib/data/services/odds-service';
+import { NextRequest } from 'next/server';
+import { oddsService } from '@/lib/data/services/odds-service';
 
-const oddsService = new OddsService();
-
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const matchId = searchParams.get('matchId');
+    const searchParams = request.nextUrl.searchParams;
+    const sportKey = searchParams.get('sportKey');
+    const fromDate = searchParams.get('from');
+    const toDate = searchParams.get('to');
 
-    if (!matchId) {
-      return NextResponse.json(
-        { error: 'Match ID is required' },
-        { status: 400 }
-      );
+    if (!sportKey) {
+      return Response.json({ success: false, error: 'Sport key is required' }, { status: 400 });
     }
 
-    const odds = await oddsService.getMatchOdds(matchId);
-    return NextResponse.json(odds);
+    let data;
+    if (fromDate && toDate) {
+      data = await oddsService.getHistoricalOdds(sportKey, fromDate, toDate);
+    } else {
+      data = await oddsService.getLatestOdds(sportKey);
+    }
+
+    return Response.json({ success: true, data });
   } catch (error) {
-    console.error('Error in odds API:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch odds' },
+    console.error('Error fetching odds:', error);
+    return Response.json(
+      { success: false, error: 'Failed to fetch odds data' },
       { status: 500 }
     );
   }

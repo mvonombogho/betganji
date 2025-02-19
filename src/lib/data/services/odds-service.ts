@@ -1,76 +1,56 @@
-import { OddsClient } from '@/lib/data/providers/odds/odds-api';
-import { BetfairClient } from '@/lib/data/providers/odds/betfair';
-import { OddsData, OddsHistory } from '@/types/odds';
+import { type OddsData } from '@/types/odds';
 
-class OddsService {
-  private oddsApi: OddsClient;
-  private betfair: BetfairClient;
-  private subscribers: Map<string, Set<(odds: OddsData) => void>>;
+const ODDS_API_KEY = process.env.ODDS_API_KEY;
+const ODDS_API_BASE_URL = 'https://api.the-odds-api.com/v4';
 
-  constructor() {
-    this.oddsApi = new OddsClient();
-    this.betfair = new BetfairClient();
-    this.subscribers = new Map();
-  }
+export class OddsService {
+  async getLatestOdds(sportKey: string): Promise<OddsData[]> {
+    const response = await fetch(
+      `${ODDS_API_BASE_URL}/sports/${sportKey}/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,spreads,totals&dateFormat=iso`
+    );
 
-  async getLiveOdds(matchId: string): Promise<OddsData> {
-    try {
-      // Try primary provider first
-      const odds = await this.oddsApi.getLiveOdds(matchId);
-      return odds;
-    } catch (error) {
-      // Fallback to secondary provider
-      console.warn('Primary odds provider failed, using fallback', error);
-      return this.betfair.getLiveOdds(matchId);
-    }
-  }
-
-  async getHistoricalOdds(matchId: string): Promise<OddsHistory> {
-    try {
-      return await this.oddsApi.getHistoricalOdds(matchId);
-    } catch (error) {
-      console.error('Failed to fetch historical odds', error);
-      throw error;
-    }
-  }
-
-  subscribeToOddsUpdates(matchId: string, callback: (odds: OddsData) => void): () => void {
-    if (!this.subscribers.has(matchId)) {
-      this.subscribers.set(matchId, new Set());
+    if (!response.ok) {
+      throw new Error(`Failed to fetch odds: ${response.statusText}`);
     }
 
-    const matchSubscribers = this.subscribers.get(matchId)!;
-    matchSubscribers.add(callback);
-
-    // Set up WebSocket connection for real-time updates
-    this.setupRealtimeUpdates(matchId);
-
-    // Return cleanup function
-    return () => {
-      matchSubscribers.delete(callback);
-      if (matchSubscribers.size === 0) {
-        this.subscribers.delete(matchId);
-        this.cleanupRealtimeUpdates(matchId);
-      }
-    };
+    const data = await response.json();
+    return this.transformOddsData(data);
   }
 
-  private setupRealtimeUpdates(matchId: string) {
-    // Implementation of WebSocket or other real-time connection
-    // This is a placeholder for the actual implementation
-    console.log(`Setting up real-time updates for match ${matchId}`);
-  }
+  async getHistoricalOdds(sportKey: string, fromDate: string, toDate: string): Promise<OddsData[]> {
+    const response = await fetch(
+      `${ODDS_API_BASE_URL}/sports/${sportKey}/odds/historical/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&dateFormat=iso&from=${fromDate}&to=${toDate}`
+    );
 
-  private cleanupRealtimeUpdates(matchId: string) {
-    // Cleanup WebSocket or other real-time connection
-    console.log(`Cleaning up real-time updates for match ${matchId}`);
-  }
-
-  private notifySubscribers(matchId: string, odds: OddsData) {
-    const subscribers = this.subscribers.get(matchId);
-    if (subscribers) {
-      subscribers.forEach(callback => callback(odds));
+    if (!response.ok) {
+      throw new Error(`Failed to fetch historical odds: ${response.statusText}`);
     }
+
+    const data = await response.json();
+    return this.transformOddsData(data);
+  }
+
+  private transformOddsData(rawData: any[]): OddsData[] {
+    return rawData.map(item => ({
+      id: item.id,
+      sportKey: item.sport_key,
+      sportTitle: item.sport_title,
+      homeTeam: item.home_team,
+      awayTeam: item.away_team,
+      commenceTime: new Date(item.commence_time),
+      bookmakers: item.bookmakers.map((bookmaker: any) => ({
+        key: bookmaker.key,
+        title: bookmaker.title,
+        lastUpdate: new Date(bookmaker.last_update),
+        markets: bookmaker.markets.map((market: any) => ({
+          key: market.key,
+          outcomes: market.outcomes.map((outcome: any) => ({
+            name: outcome.name,
+            price: outcome.price,
+          })),
+        })),
+      })),
+    }));
   }
 }
 
