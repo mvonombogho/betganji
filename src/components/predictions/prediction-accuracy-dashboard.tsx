@@ -86,3 +86,49 @@ export function PredictionAccuracyDashboard({
       
       return acc;
     }, {} as Record<string, { total: number; correct: number }>);
+
+    // Prepare data for charts
+    const confidenceChartData = Object.entries(confidenceBuckets).map(([range, data]) => ({
+      range,
+      accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
+      total: data.total,
+    })).filter(item => item.total > 0);
+
+    const leagueChartData = Object.entries(leagueStats).map(([league, data]) => ({
+      league,
+      accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
+      total: data.total,
+    })).filter(item => item.total > 0).sort((a, b) => b.total - a.total);
+
+    // Calculate totals
+    const total = finishedPredictions.length;
+    const correct = correctPredictions.length;
+    const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+    return {
+      total,
+      correct,
+      accuracy,
+      confidenceChartData,
+      leagueChartData,
+    };
+  }, [predictions]);
+
+  // Return empty state if no finished predictions
+  if (stats.total === 0) {
+    return (
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle>Prediction Accuracy</CardTitle>
+          <CardDescription>
+            Track the performance of DeepSeek R1 predictions
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center py-8">
+          <p className="text-gray-500">
+            No finished matches with predictions yet. Check back after your predictions have been settled.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
