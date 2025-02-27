@@ -1,74 +1,116 @@
-import { Match, TeamStats, H2HStats } from '@/types/match';
-import { APIFootballClient } from '@/lib/data/providers/soccer/api-football';
+import { Match } from '@/types/match';
 
-class MatchService {
-  private apiClient: APIFootballClient;
-  private cache: Map<string, { data: any; timestamp: number }>;
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-  constructor() {
-    this.apiClient = new APIFootballClient();
-    this.cache = new Map();
-  }
-
-  async getMatches(date?: string): Promise<Match[]> {
-    const cacheKey = `matches-${date || 'today'}`;
-    const cached = this.getFromCache(cacheKey);
-    
-    if (cached) {
-      return cached as Match[];
+/**
+ * Fetches all matches from the database
+ */
+export async function fetchMatches(): Promise<Match[]> {
+  try {
+    const response = await fetch('/api/matches');
+    if (!response.ok) {
+      throw new Error('Failed to fetch matches');
     }
-
-    const matches = await this.apiClient.getMatches(date || new Date().toISOString());
-    this.setCache(cacheKey, matches);
-    return matches;
-  }
-
-  async getH2H(team1Id: string, team2Id: string): Promise<H2HStats> {
-    const cacheKey = `h2h-${team1Id}-${team2Id}`;
-    const cached = this.getFromCache(cacheKey);
-
-    if (cached) {
-      return cached as H2HStats;
-    }
-
-    const h2hStats = await this.apiClient.getH2H(team1Id, team2Id);
-    this.setCache(cacheKey, h2hStats);
-    return h2hStats;
-  }
-
-  async getTeamStats(teamId: string): Promise<TeamStats> {
-    const cacheKey = `team-stats-${teamId}`;
-    const cached = this.getFromCache(cacheKey);
-
-    if (cached) {
-      return cached as TeamStats;
-    }
-
-    const teamStats = await this.apiClient.getTeamStats(teamId);
-    this.setCache(cacheKey, teamStats);
-    return teamStats;
-  }
-
-  private getFromCache(key: string): any | null {
-    const cached = this.cache.get(key);
-    if (!cached) return null;
-
-    const isExpired = Date.now() - cached.timestamp > this.CACHE_DURATION;
-    if (isExpired) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return cached.data;
-  }
-
-  private setCache(key: string, data: any): void {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now()
-    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error in fetchMatches:', error);
+    throw error;
   }
 }
 
-export const matchService = new MatchService();
+/**
+ * Fetches a single match by ID
+ */
+export async function fetchMatchById(matchId: string): Promise<Match> {
+  try {
+    const response = await fetch(`/api/matches/${matchId}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch match with ID: ${matchId}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`Error in fetchMatchById for ID ${matchId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Updates match scores for multiple matches
+ */
+export async function updateMatchScores(matchIds: string[]): Promise<Match[]> {
+  try {
+    const response = await fetch('/api/matches/update-scores', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ matchIds }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update match scores');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error in updateMatchScores:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches upcoming matches
+ */
+export async function fetchUpcomingMatches(): Promise<Match[]> {
+  try {
+    const response = await fetch('/api/matches/upcoming');
+    if (!response.ok) {
+      throw new Error('Failed to fetch upcoming matches');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error in fetchUpcomingMatches:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches matches by date range
+ */
+export async function fetchMatchesByDateRange(
+  startDate: string,
+  endDate: string
+): Promise<Match[]> {
+  try {
+    const response = await fetch(
+      `/api/matches/date-range?start=${startDate}&end=${endDate}`
+    );
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch matches by date range');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error in fetchMatchesByDateRange:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetches matches by competition
+ */
+export async function fetchMatchesByCompetition(
+  competitionId: string
+): Promise<Match[]> {
+  try {
+    const response = await fetch(`/api/matches/competition/${competitionId}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch matches for competition: ${competitionId}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`Error in fetchMatchesByCompetition for ID ${competitionId}:`, error);
+    throw error;
+  }
+}
