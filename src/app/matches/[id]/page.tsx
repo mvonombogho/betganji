@@ -1,104 +1,101 @@
+import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/db';
-import { GetPrediction } from '@/components/predictions/get-prediction';
+import { getMatchById } from '@/lib/data/services/match-service';
+import { getOddsForMatch } from '@/lib/data/services/odds-service';
+import { getPredictionForMatch } from '@/lib/data/services/prediction-service';
+import { MatchPredictionView } from '@/components/predictions/match-prediction-view';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { MatchHeader } from '@/components/matches/match-header';
+import { MatchOverview } from '@/components/matches/match-overview';
+import { MatchOdds } from '@/components/matches/match-odds';
+import { MatchLineups } from '@/components/matches/match-lineups';
+import { auth } from '@/lib/auth';
 
 interface MatchPageProps {
-  params: { id: string };
+  params: {
+    id: string;
+  };
 }
 
-async function getMatchDetails(id: string) {
-  try {
-    const match = await prisma.match.findUnique({
-      where: { id },
-      include: {
-        homeTeam: true,
-        awayTeam: true,
-        odds: {
-          orderBy: {
-            timestamp: 'desc',
-          },
-          take: 1,
-        },
-      },
-    });
-
-    return match;
-  } catch (error) {
-    console.error('Error fetching match:', error);
-    return null;
+export async function generateMetadata(
+  { params }: MatchPageProps
+): Promise<Metadata> {
+  const match = await getMatchById(params.id);
+  
+  if (!match) {
+    return {
+      title: 'Match Not Found',
+    };
   }
+
+  return {
+    title: `${match.homeTeam.name} vs ${match.awayTeam.name} | BetGanji`,
+    description: `View match details and predictions for ${match.homeTeam.name} vs ${match.awayTeam.name} in ${match.competition.name}.`,
+  };
 }
 
 export default async function MatchPage({ params }: MatchPageProps) {
-  const match = await getMatchDetails(params.id);
-
+  const session = await auth();
+  const matchId = params.id;
+  
+  // Fetch the match data
+  const match = await getMatchById(matchId);
+  
   if (!match) {
     notFound();
   }
-
-  const currentOdds = match.odds[0];
+  
+  // Fetch associated data
+  const oddsData = await getOddsForMatch(matchId);
+  const prediction = session?.user ? await getPredictionForMatch(matchId, session.user.id) : null;
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container py-6 max-w-7xl">
       {/* Match Header */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <div className="text-sm text-gray-500 mb-2">
-          {new Date(match.datetime).toLocaleString(undefined, {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
+      <MatchHeader match={match} />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        <div className="col-span-1 lg:col-span-2 space-y-6">
+          {/* Main Match Content */}
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="w-full">
+              <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
+              <TabsTrigger value="odds" className="flex-1">Odds</TabsTrigger>
+              <TabsTrigger value="lineups" className="flex-1">Lineups</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="overview" className="mt-4">
+              <MatchOverview match={match} />
+            </TabsContent>
+            
+            <TabsContent value="odds" className="mt-4">
+              <MatchOdds matchId={matchId} initialOdds={oddsData} />
+            </TabsContent>
+            
+            <TabsContent value="lineups" className="mt-4">
+              <MatchLineups matchId={matchId} />
+            </TabsContent>
+          </Tabs>
         </div>
-        <div className="flex justify-between items-center text-xl font-bold">
-          <span>{match.homeTeam.name}</span>
-          <span>vs</span>
-          <span>{match.awayTeam.name}</span>
-        </div>
-      </div>
-
-      {/* Content Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Odds Section */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Current Odds</h2>
-          {currentOdds ? (
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-sm text-gray-500">Home Win</div>
-                <div className="text-xl font-bold">{currentOdds.homeWin.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Draw</div>
-                <div className="text-xl font-bold">{currentOdds.draw.toFixed(2)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Away Win</div>
-                <div className="text-xl font-bold">{currentOdds.awayWin.toFixed(2)}</div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-500">No odds available</p>
-          )}
-        </div>
-
-        {/* Prediction Section */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Get AI Prediction</h2>
-          {currentOdds ? (
-            <GetPrediction
-              matchId={match.id}
-              homeTeam={match.homeTeam.name}
-              awayTeam={match.awayTeam.name}
-              odds={currentOdds}
+        
+        <div className="col-span-1 space-y-6">
+          {/* Prediction Section */}
+          {session?.user ? (
+            <MatchPredictionView 
+              match={match} 
+              currentOdds={oddsData} 
+              prediction={prediction}
             />
           ) : (
-            <p className="text-gray-500">
-              Predictions are available once odds are published
-            </p>
+            <div className="bg-white p-4 rounded-lg shadow text-center">
+              <p className="text-gray-500 mb-4">Sign in to view and create predictions</p>
+              <a href="/login" className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                Sign In
+              </a>
+            </div>
           )}
+          
+          {/* Additional widgets can go here */}
         </div>
       </div>
     </div>
