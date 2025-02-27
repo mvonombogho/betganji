@@ -111,3 +111,53 @@ export default async function PredictionsDashboardPage() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Main Content */}
+      <Tabs defaultValue="history" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="history" className="flex gap-2 items-center">
+            <ListFilter size={16} />
+            <span>Prediction History</span>
+          </TabsTrigger>
+          <TabsTrigger value="matches" className="flex gap-2 items-center">
+            <CalendarIcon size={16} />
+            <span>Matches</span>
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="history" className="space-y-4">
+          <PredictionHistory 
+            predictions={predictions} 
+            className="bg-white" 
+          />
+        </TabsContent>
+        
+        <TabsContent value="matches" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Predicted Matches</CardTitle>
+              <CardDescription>
+                View all the matches you've made predictions for
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {matchesWithPredictions.length > 0 ? (
+                <MatchList 
+                  matches={matchesWithPredictions} 
+                  predictions={predictions}
+                />
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 mb-4">You haven't made any predictions yet</p>
+                  <Link href="/matches">
+                    <Button>Browse Matches</Button>
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
