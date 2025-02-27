@@ -1,14 +1,15 @@
 import { Match } from '@/types/match';
 import { OddsData } from '@/types/odds';
 import { Prediction, PredictionInsights } from '@/types/prediction';
-import { ClaudeClient } from '../claude/client';
+import { DeepseekClient } from '../deepseek/client';
+import { generateMatchPrompt, generateInsightsPrompt } from '../deepseek/prompts';
 
 export class PredictionEngine {
-  private claude: ClaudeClient;
+  private deepseek: DeepseekClient;
   private historicalDataCache: Map<string, any>;
 
   constructor() {
-    this.claude = new ClaudeClient();
+    this.deepseek = new DeepseekClient();
     this.historicalDataCache = new Map();
   }
 
@@ -17,12 +18,36 @@ export class PredictionEngine {
       // Gather historical data for better analysis
       const historicalData = await this.gatherHistoricalData(match);
 
-      // Get insights from Claude
-      const insights = await this.claude.generatePrediction({
-        match,
-        odds,
-        historicalData
-      });
+      // Generate prompt for DeepSeek
+      const prompt = generateMatchPrompt({
+        ...match,
+        homeTeam: {
+          ...match.homeTeam,
+          recentForm: historicalData?.recentForm?.home || []
+        },
+        awayTeam: {
+          ...match.awayTeam,
+          recentForm: historicalData?.recentForm?.away || []
+        },
+        h2h: historicalData?.headToHead || [],
+        competition: match.competition
+      }, odds);
+
+      // Get prediction from DeepSeek
+      const response = await this.deepseek.generatePrediction(prompt);
+
+      // Convert DeepSeek response to PredictionInsights
+      const insights: PredictionInsights = {
+        factors: response.insights.keyFactors.map(factor => ({
+          name: factor,
+          impact: 0, // Default impact
+          description: ''
+        })),
+        riskLevel: this.calculateRiskLevel(response.confidence),
+        confidenceScore: response.confidence,
+        additionalNotes: response.insights.additionalNotes,
+        recommendedBets: []
+      };
 
       // Post-process and enhance insights
       return this.enhanceInsights(insights, match, odds);
@@ -41,18 +66,36 @@ export class PredictionEngine {
       // Get current odds for the match
       const odds = await this.getCurrentOdds(prediction.match.id);
 
-      // Generate new insights based on the prediction and current data
-      const insights = await this.claude.generatePrediction({
-        match: prediction.match,
-        odds,
-        historicalData: await this.gatherHistoricalData(prediction.match)
-      });
+      // Generate prompt for DeepSeek
+      const prompt = generateInsightsPrompt(prediction);
+
+      // Get insights from DeepSeek
+      const response = await this.deepseek.generatePrediction(prompt);
+
+      // Convert DeepSeek response to PredictionInsights
+      const insights: PredictionInsights = {
+        factors: response.insights.keyFactors.map(factor => ({
+          name: factor,
+          impact: 0, // Default impact
+          description: ''
+        })),
+        riskLevel: this.calculateRiskLevel(response.confidence),
+        confidenceScore: response.confidence,
+        additionalNotes: response.insights.additionalNotes,
+        recommendedBets: []
+      };
 
       return this.enhanceInsights(insights, prediction.match, odds);
     } catch (error) {
       console.error('Failed to generate insights:', error);
       throw error;
     }
+  }
+
+  private calculateRiskLevel(confidence: number): 'LOW' | 'MEDIUM' | 'HIGH' {
+    if (confidence >= 70) return 'LOW';
+    if (confidence >= 40) return 'MEDIUM';
+    return 'HIGH';
   }
 
   private async gatherHistoricalData(match: Match): Promise<any> {
@@ -63,7 +106,7 @@ export class PredictionEngine {
     }
 
     try {
-      // Gather relevant historical data (implement based on your data sources)
+      // Gather relevant historical data
       const historicalData = {
         headToHead: await this.getHeadToHeadHistory(match),
         recentForm: await this.getRecentForm(match),
@@ -122,7 +165,7 @@ export class PredictionEngine {
         ...insights.factors,
         // Add any additional factors based on your analysis
       ],
-      additionalNotes: insights.additionalNotes + '\n\nAnalysis enhanced with historical data and current market conditions.'
+      additionalNotes: insights.additionalNotes + '\n\nAnalysis enhanced with historical data and current market conditions using DeepSeek R1 AI.'
     };
   }
 }
