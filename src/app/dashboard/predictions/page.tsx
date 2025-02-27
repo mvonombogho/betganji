@@ -69,3 +69,45 @@ export default async function PredictionsDashboardPage() {
           </Link>
         </div>
       </div>
+      
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Brain size={18} className="text-purple-500" />
+              <span>Total Predictions</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{totalPredictions}</div>
+            <p className="text-sm text-gray-500">{pendingPredictions} pending • {finishedPredictions} settled</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <LineChart size={18} className="text-green-500" />
+              <span>Accuracy Rate</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{accuracyRate}%</div>
+            <p className="text-sm text-gray-500">{correctPredictions} correct out of {finishedPredictions} finished</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarIcon size={18} className="text-blue-500" />
+              <span>Upcoming Predictions</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{pendingPredictions}</div>
+            <p className="text-sm text-gray-500">Match predictions awaiting results</p>
+          </CardContent>
+        </Card>
+      </div>
