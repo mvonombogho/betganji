@@ -24,17 +24,20 @@ export class DeepseekClient {
 
   async generatePrediction(prompt: string): Promise<DeepseekResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/predictions`, {
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
-          prompt,
+          model: 'deepseek-reasoner', // DeepSeek R1 model
+          messages: [
+            { role: 'user', content: prompt }
+          ],
           max_tokens: 1000,
-          temperature: 0.7,
-          model: 'deepseek-sports',
+          temperature: 0.5,
+          response_format: { type: 'json_object' } // Ensure JSON output
         }),
       });
 
@@ -52,16 +55,27 @@ export class DeepseekClient {
   }
 
   private formatResponse(data: any): DeepseekResponse {
-    // Extract and structure the relevant information from the API response
-    return {
-      result: data.choices[0].prediction,
-      confidence: data.choices[0].confidence,
-      insights: {
-        keyFactors: data.choices[0].analysis.key_factors,
-        riskAnalysis: data.choices[0].analysis.risk_assessment,
-        confidenceExplanation: data.choices[0].analysis.confidence_explanation,
-        additionalNotes: data.choices[0].analysis.additional_notes,
-      },
-    };
+    try {
+      // Extract the content from the API response
+      const content = data.choices[0].message.content;
+      
+      // Parse the JSON content
+      const parsedContent = JSON.parse(content);
+      
+      // Extract and structure the relevant information
+      return {
+        result: parsedContent.prediction || '',
+        confidence: parsedContent.confidence || 0,
+        insights: {
+          keyFactors: parsedContent.analysis?.key_factors || [],
+          riskAnalysis: parsedContent.analysis?.risk_assessment || '',
+          confidenceExplanation: parsedContent.analysis?.confidence_explanation || '',
+          additionalNotes: parsedContent.analysis?.additional_notes || '',
+        },
+      };
+    } catch (error) {
+      console.error('Error parsing DeepSeek response:', error);
+      throw new Error('Failed to parse DeepSeek API response');
+    }
   }
 }
