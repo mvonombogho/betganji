@@ -1,13 +1,15 @@
 import { Odds } from '@/types/odds';
 import { fetchLatestOdds, updateOdds } from '../data/services/odds-service';
 import { fetchUpcomingMatches } from '../data/services/match-service';
+import { oddsAPI } from '../data/providers/odds/odds-api';
 
 /**
  * Controller to handle odds-related operations
+ * Simplified to use only The Odds API
  */
 export class OddsController {
   /**
-   * Refreshes odds data from external bookmakers
+   * Refreshes odds data from The Odds API
    */
   static async refreshOdds(): Promise<Odds[]> {
     try {
@@ -17,14 +19,14 @@ export class OddsController {
       // Create an array to store all odds
       const allOdds: Odds[] = [];
       
-      // For each match, fetch the latest odds from providers
+      // For each match, fetch the latest odds from The Odds API
       for (const match of upcomingMatches) {
         try {
-          const matchOdds = await fetchLatestOdds(match.id);
+          const oddsData = await oddsAPI.getLiveOdds(match.id);
           
           // Add to the array
-          if (matchOdds && matchOdds.length > 0) {
-            allOdds.push(...matchOdds);
+          if (oddsData) {
+            allOdds.push(oddsData);
           }
         } catch (error) {
           console.error(`Error fetching odds for match ${match.id}:`, error);
@@ -59,23 +61,26 @@ export class OddsController {
   }
   
   /**
-   * Compares odds across different bookmakers for a match
+   * Gets the best available odds for a match
+   * Since we're only using one provider, this just returns the latest odds
    */
-  static async compareOddsForMatch(matchId: string): Promise<Record<string, Odds>> {
+  static async getBestOddsForMatch(matchId: string): Promise<Odds | null> {
     try {
-      // Fetch the latest odds for this match from all providers
-      const allOdds = await fetchLatestOdds(matchId);
+      const allOdds = await this.getOddsForMatch(matchId);
       
-      // Group by provider
-      const oddsComparison: Record<string, Odds> = {};
+      if (allOdds.length === 0) {
+        return null;
+      }
       
-      allOdds.forEach(odds => {
-        oddsComparison[odds.provider] = odds;
-      });
+      // Sort by timestamp (newest first)
+      const sortedOdds = allOdds.sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
       
-      return oddsComparison;
+      // Return the most recent odds
+      return sortedOdds[0];
     } catch (error) {
-      console.error(`Error comparing odds for match ${matchId}:`, error);
+      console.error(`Error getting best odds for match ${matchId}:`, error);
       throw error;
     }
   }
