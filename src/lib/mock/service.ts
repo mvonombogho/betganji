@@ -1,6 +1,6 @@
 import { Match } from '@/types/match';
 import { OddsData } from '@/types/odds';
-import { Prediction, PredictionInsights } from '@/types/prediction';
+import { Prediction, PredictionInsights, PredictionType } from '@/types/prediction';
 import { 
   mockMatches, 
   getMatchById, 
@@ -110,5 +110,104 @@ export class MockOddsService {
     await new Promise(resolve => setTimeout(resolve, 150));
     // For mock purposes, we'll just return the regular odds
     return getOddsForMatch(matchId);
+  }
+}
+
+/**
+ * Mock implementation of the PredictionService
+ */
+export class MockPredictionService {
+  async getPredictions(): Promise<Prediction[]> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return mockPredictions;
+  }
+  
+  async getPredictionById(id: string): Promise<Prediction | null> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return getPredictionById(id) || null;
+  }
+  
+  async getPredictionsForMatch(matchId: string): Promise<Prediction[]> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return getPredictionsForMatch(matchId);
+  }
+  
+  async getUserPredictions(userId: string): Promise<Prediction[]> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return getUserPredictions(userId);
+  }
+  
+  async getSuccessfulPredictions(): Promise<Prediction[]> {
+    await new Promise(resolve => setTimeout(resolve, 250));
+    return getSuccessfulPredictions();
+  }
+  
+  async getFailedPredictions(): Promise<Prediction[]> {
+    await new Promise(resolve => setTimeout(resolve, 250));
+    return getFailedPredictions();
+  }
+  
+  async getPendingPredictions(): Promise<Prediction[]> {
+    await new Promise(resolve => setTimeout(resolve, 250));
+    return getPendingPredictions();
+  }
+  
+  async calculateSuccessRate(userId?: string): Promise<number> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return calculateSuccessRate(userId);
+  }
+  
+  async createPrediction(data: {
+    userId: string;
+    matchId: string;
+    prediction: PredictionType;
+    confidence: number;
+    stake?: number;
+    reasoning?: string;
+  }): Promise<Prediction> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const match = getMatchById(data.matchId);
+    if (!match) {
+      throw new Error('Match not found');
+    }
+    
+    const newPrediction: Prediction = {
+      id: Math.random().toString(36).substring(2, 15),
+      userId: data.userId,
+      matchId: data.matchId,
+      prediction: data.prediction,
+      confidence: data.confidence,
+      stake: data.stake,
+      odds: 2.0 + Math.random(),
+      result: 'PENDING',
+      reasoning: data.reasoning || 'No reasoning provided',
+      aiSuggestion: 'This is a mock AI suggestion',
+      insights: {
+        factors: [
+          {
+            name: 'Recent Form',
+            impact: Math.random() * 5,
+            description: 'Analysis of recent form'
+          },
+          {
+            name: 'Head to Head',
+            impact: Math.random() * 5,
+            description: 'Historical performance between these teams'
+          }
+        ],
+        riskLevel: data.confidence > 70 ? 'LOW' : data.confidence > 40 ? 'MEDIUM' : 'HIGH',
+        confidenceScore: data.confidence,
+        additionalNotes: 'This is a mock prediction',
+        recommendedBets: []
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // Add to mock predictions
+    mockPredictions.push(newPrediction);
+    
+    return newPrediction;
   }
 }
