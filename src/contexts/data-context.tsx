@@ -147,3 +147,95 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setRefreshing(false);
     }
   }, [refreshMatches, refreshPredictions, refreshOdds]);
+
+  const initializeData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('Initializing data...');
+      
+      if (useMockServices) {
+        // Use mock services
+        console.log('Using mock services for initialization');
+        const matchesData = await matchService.getMatches();
+        const predictionsData = await predictionService.getPredictions();
+        
+        // For mock services, we'll combine all odds from all matches
+        const allOdds: OddsData[] = [];
+        for (const match of matchesData) {
+          const matchOdds = await oddsService.getOddsForMatch(match.id);
+          allOdds.push(...matchOdds);
+        }
+        
+        setMatches(matchesData);
+        setPredictions(predictionsData);
+        setOdds(allOdds);
+        
+        console.log('Mock data initialized:', { 
+          matches: matchesData.length, 
+          predictions: predictionsData.length, 
+          odds: allOdds.length 
+        });
+      } else {
+        // Use API
+        const response = await fetch('/api/initialize');
+        if (!response.ok) {
+          throw new Error('Failed to initialize data');
+        }
+        const data = await response.json();
+        setMatches(data.matches || []);
+        setPredictions(data.predictions || []);
+        setOdds(data.odds || []);
+      }
+      
+      setLastRefresh(new Date());
+    } catch (err) {
+      console.error('Failed to initialize data:', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, [matchService, predictionService, oddsService, useMockServices]);
+
+  // Initialize data on component mount
+  useEffect(() => {
+    console.log('DataProvider mounted - initializing data');
+    initializeData();
+    
+    // Setup automatic refresh every hour
+    const refreshInterval = setInterval(() => {
+      refreshAll();
+    }, 60 * 60 * 1000); // 1 hour
+    
+    return () => clearInterval(refreshInterval);
+  }, [initializeData, refreshAll]);
+
+  const value = {
+    matches,
+    predictions,
+    odds,
+    loading,
+    error,
+    lastRefresh,
+    refreshing,
+    refreshMatches,
+    refreshPredictions,
+    refreshOdds,
+    refreshAll,
+    initializeData
+  };
+
+  return (
+    <DataContext.Provider value={value}>
+      {children}
+    </DataContext.Provider>
+  );
+}
+
+export function useData() {
+  const context = useContext(DataContext);
+  if (context === undefined) {
+    throw new Error('useData must be used within a DataProvider');
+  }
+  return context;
+}
