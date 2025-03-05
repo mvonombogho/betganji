@@ -91,3 +91,59 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setRefreshing(false);
     }
   }, [predictionService, useMockServices]);
+
+  const refreshOdds = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      console.log('Refreshing odds...');
+      
+      if (useMockServices) {
+        // For mock services, we'll combine all odds from all matches
+        const allOdds: OddsData[] = [];
+        
+        for (const match of matches) {
+          const matchOdds = await oddsService.getOddsForMatch(match.id);
+          console.log(`Mock odds for match ${match.id}:`, matchOdds);
+          allOdds.push(...matchOdds);
+        }
+        
+        setOdds(allOdds);
+      } else {
+        // Use API
+        const response = await fetch('/api/odds/refresh');
+        if (!response.ok) {
+          throw new Error('Failed to refresh odds');
+        }
+        const data = await response.json();
+        setOdds(data);
+      }
+      
+      setLastRefresh(new Date());
+    } catch (err) {
+      console.error('Error refreshing odds:', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [matches, oddsService, useMockServices]);
+
+  const refreshAll = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      setError(null);
+      console.log('Refreshing all data...');
+      
+      // Execute in sequence rather than parallel to avoid potential race conditions
+      await refreshMatches();
+      await refreshPredictions();
+      await refreshOdds();
+      
+      setLastRefresh(new Date());
+      console.log('All data refreshed successfully');
+    } catch (err) {
+      console.error('Failed to refresh all data:', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshMatches, refreshPredictions, refreshOdds]);
