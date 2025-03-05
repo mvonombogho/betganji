@@ -141,3 +141,110 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Upcoming Matches</h2>
+            <Link href="/matches" className="text-blue-600 hover:text-blue-500 text-sm">
+              View All
+            </Link>
+          </div>
+          
+          {upcomingMatches.length === 0 ? (
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-4 text-center">
+              <p className="text-gray-500 dark:text-gray-400">No upcoming matches scheduled</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {upcomingMatches.slice(0, 5).map(match => (
+                <Link 
+                  href={`/matches/${match.id}`} 
+                  key={match.id}
+                  className="block bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md p-3 transition"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">{match.homeTeam.name} vs {match.awayTeam.name}</span>
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">
+                      {new Date(match.datetime).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {match.competition} • {new Date(match.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Recent Predictions</h2>
+            <Link href="/predictions" className="text-blue-600 hover:text-blue-500 text-sm">
+              View All
+            </Link>
+          </div>
+          
+          {recentPredictions.length === 0 ? (
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-4 text-center">
+              <p className="text-gray-500 dark:text-gray-400">No predictions yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentPredictions.map(prediction => {
+                // Find the match associated with this prediction
+                const match = matches.find(m => m.id === prediction.matchId);
+                
+                if (!match) return null;
+                
+                return (
+                  <Link 
+                    href={`/predictions/${prediction.id}`} 
+                    key={prediction.id}
+                    className="block bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md p-3 transition"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">
+                        {match.homeTeam.name} vs {match.awayTeam.name}
+                      </span>
+                      <div className={`px-2 py-1 rounded text-xs font-medium ${
+                        prediction.result === 'WIN' 
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' 
+                          : prediction.result === 'LOSS' 
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {prediction.result}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {prediction.prediction.replace('_', ' ')} • Confidence: {prediction.confidence}%
+                      </div>
+                      <div className="text-sm font-medium">
+                        {prediction.odds && `${prediction.odds}x`}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">About BetGanji</h2>
+          <p className="text-gray-700 dark:text-gray-300 mb-4">
+            BetGanji is an AI-powered sports prediction platform that leverages advanced machine learning models to analyze soccer matches and provide betting insights.
+          </p>
+          <p className="text-gray-700 dark:text-gray-300">
+            This dashboard is running with mock data for demonstration purposes. Use the toggle in the bottom right corner to switch between mock and real data services.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
