@@ -1,32 +1,24 @@
-import { RegisterForm } from '@/components/auth/register-form';
-import Link from 'next/link';
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function RegisterPage() {
+  const router = useRouter();
+  
+  // Auto-redirect to dashboard
+  useEffect(() => {
+    console.log('Register page mounted - auto redirecting to dashboard');
+    router.push('/dashboard');
+  }, [router]);
+  
+  // While the redirect is happening, show a loading message
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Create an account</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Join BetGanji to start making predictions
-          </p>
-        </div>
-
-        {/* Registration Form */}
-        <RegisterForm />
-
-        {/* Links */}
-        <div className="text-center text-sm">
-          <span className="text-gray-500">
-            Already have an account?{' '}
-          </span>
-          <Link 
-            href="/login" 
-            className="font-medium text-blue-600 hover:text-blue-500"
-          >
-            Sign in
-          </Link>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
+        <h1 className="text-2xl font-bold mb-6">Redirecting to Dashboard...</h1>
+        <div className="animate-pulse mt-4">
+          <div className="h-2 bg-blue-200 rounded"></div>
         </div>
       </div>
     </div>
