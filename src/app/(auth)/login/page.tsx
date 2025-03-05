@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useServices } from '@/contexts/ServiceContext';
@@ -9,8 +9,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { userService } = useServices();
   
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('user@example.com'); // Pre-filled for testing
+  const [password, setPassword] = useState('demo1234'); // Pre-filled for testing
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -20,6 +20,7 @@ export default function LoginPage() {
     setError(null);
     
     try {
+      console.log('Attempting login with:', email, password);
       const user = await userService.login(email, password);
       
       if (user) {
@@ -28,6 +29,7 @@ export default function LoginPage() {
         // Redirect to dashboard
         router.push('/dashboard');
       } else {
+        console.error('Login failed - no user returned');
         setError('Invalid email or password');
       }
     } catch (err) {
@@ -37,6 +39,13 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+  
+  // For testing purposes - auto login in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Development mode detected - you can click login to proceed');
+    }
+  }, []);
   
   return (
     <div className="flex min-h-screen flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900">
@@ -54,7 +63,7 @@ export default function LoginPage() {
           
           {/* Mock credentials help */}
           <div className="mt-4 border border-blue-200 bg-blue-50 p-3 rounded-md text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-            <p className="font-semibold">Mock credentials:</p>
+            <p className="font-semibold">Mock credentials (pre-filled):</p>
             <p>Email: user@example.com</p>
             <p>Password: demo1234</p>
           </div>
