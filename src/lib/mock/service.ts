@@ -86,3 +86,29 @@ export class MockMatchService {
     return getMatchesByCompetition(competition);
   }
 }
+
+/**
+ * Mock implementation of the OddsService
+ */
+export class MockOddsService {
+  async getOddsForMatch(matchId: string): Promise<OddsData[]> {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return getOddsForMatch(matchId);
+  }
+  
+  async getBestOddsForMatch(matchId: string): Promise<OddsData | null> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return getBestOddsForMatch(matchId) || null;
+  }
+  
+  async getAverageOddsForMatch(matchId: string): Promise<OddsData | null> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return getAverageOddsForMatch(matchId) || null;
+  }
+  
+  async getLiveOdds(matchId: string): Promise<OddsData[]> {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    // For mock purposes, we'll just return the regular odds
+    return getOddsForMatch(matchId);
+  }
+}
