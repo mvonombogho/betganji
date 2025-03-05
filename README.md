@@ -91,3 +91,45 @@ Run tests in watch mode:
 ```bash
 npm run test:watch
 ```
+
+## Project Structure
+
+```
+src/
+├── app/              # Next.js pages and API routes
+│   ├── (auth)/       # Authentication routes
+│   ├── api/          # API endpoints
+│   ├── dashboard/    # Dashboard pages
+│   └── ...
+├── components/       # React components
+│   ├── ui/           # UI components (shadcn)
+│   ├── matches/      # Match-related components
+│   ├── predictions/  # Prediction-related components
+│   └── dev/          # Development utilities
+├── contexts/         # React contexts for state management
+│   ├── ServiceContext.tsx # Service provider context
+│   └── data-context.tsx   # Data management context
+├── lib/              # Utilities and services
+│   ├── ai/           # AI integration
+│   │   ├── claude/   # Claude API integration
+│   │   ├── deepseek/ # DeepSeek integration
+│   │   └── prediction/ # Prediction engine
+│   ├── data/         # Data providers and services
+│   ├── mock/         # Mock data and services
+│   └── utils/        # Utility functions
+├── middleware/       # Request middleware
+└── types/            # TypeScript type definitions
+```
+
+## Contributing
+
+1. Create a new branch
+2. Make your changes
+3. Run tests and linting
+4. Submit a pull request
+
+Ensure all tests pass and code follows the project's style guide.
+
+## License
+
+MIT
