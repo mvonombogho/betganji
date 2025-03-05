@@ -35,56 +35,22 @@ cd betganji
 npm install
 ```
 
-3. Set up environment variables:
-```bash
-cp .env.example .env.local
-# Edit .env.local with your values
-```
-
-4. Initialize the database:
-```bash
-npm run db:generate
-npm run db:push
-npm run db:seed
-```
-
-5. Run the development server:
+3. Run the development server:
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will automatically use mock data services, no database setup required! You can toggle between mock and real services using the developer control panel in the bottom right corner (visible only in development mode).
 
-## Testing
+4. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-Run the test suite:
-```bash
-npm test
-```
+## Mock Services
 
-Run tests in watch mode:
-```bash
-npm run test:watch
-```
+The application includes a comprehensive mock data implementation that allows you to develop and test the UI without requiring external services or databases:
 
-## Project Structure
+- **Mock Match Data**: Pre-populated soccer matches with various statuses (scheduled, live, finished)
+- **Mock Odds Data**: Realistic odds from multiple providers
+- **Mock Prediction Data**: AI-generated predictions with insights
+- **Mock User Authentication**: Login with email `user@example.com` and password `demo1234`
 
-```
-src/
-├── app/              # Next.js pages and API routes
-├── components/       # React components
-├── lib/              # Utilities and services
-│   ├── services/     # Business logic
-│   ├── auth/         # Authentication
-│   └── utils/        # Helper functions
-└── types/           # TypeScript types
-```
-
-## Contributing
-
-1. Create a new branch
-2. Make your changes
-3. Run tests and linting
-4. Submit a pull request
-
-Ensure all tests pass and code follows the project's style guide.
+The mock data service is automatically enabled in development mode.
