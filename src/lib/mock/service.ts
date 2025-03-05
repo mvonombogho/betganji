@@ -30,7 +30,8 @@ import {
   mockUsers,
   getUserById,
   getUserByEmail,
-  authenticateUser
+  authenticateUser,
+  MockUser
 } from './users';
 
 /**
@@ -209,5 +210,104 @@ export class MockPredictionService {
     mockPredictions.push(newPrediction);
     
     return newPrediction;
+  }
+}
+
+/**
+ * Mock implementation of the UserService
+ */
+export class MockUserService {
+  async getUserById(id: string): Promise<MockUser | null> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return getUserById(id) || null;
+  }
+  
+  async getUserByEmail(email: string): Promise<MockUser | null> {
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return getUserByEmail(email) || null;
+  }
+  
+  async login(email: string, password: string): Promise<MockUser | null> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return authenticateUser(email, password);
+  }
+  
+  async register(data: {
+    email: string;
+    name: string;
+    password: string;
+  }): Promise<MockUser> {
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Check if user already exists
+    const existingUser = getUserByEmail(data.email);
+    if (existingUser) {
+      throw new Error('User with this email already exists');
+    }
+    
+    const newUser: MockUser = {
+      id: Math.random().toString(36).substring(2, 15),
+      email: data.email,
+      name: data.name,
+      password: data.password, // In a real app, this would be hashed
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // Add to mock users
+    mockUsers.push(newUser);
+    
+    return newUser;
+  }
+  
+  async updateProfile(userId: string, data: {
+    name?: string;
+    email?: string;
+  }): Promise<MockUser | null> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const userIndex = mockUsers.findIndex(user => user.id === userId);
+    if (userIndex === -1) {
+      return null;
+    }
+    
+    // Update user data
+    if (data.name) {
+      mockUsers[userIndex].name = data.name;
+    }
+    
+    if (data.email) {
+      // Check if email is already in use
+      const existingUser = getUserByEmail(data.email);
+      if (existingUser && existingUser.id !== userId) {
+        throw new Error('Email already in use');
+      }
+      
+      mockUsers[userIndex].email = data.email;
+    }
+    
+    mockUsers[userIndex].updatedAt = new Date().toISOString();
+    
+    return mockUsers[userIndex];
+  }
+  
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const userIndex = mockUsers.findIndex(user => user.id === userId);
+    if (userIndex === -1) {
+      return false;
+    }
+    
+    // Verify current password
+    if (mockUsers[userIndex].password !== currentPassword) {
+      throw new Error('Current password is incorrect');
+    }
+    
+    // Update password
+    mockUsers[userIndex].password = newPassword;
+    mockUsers[userIndex].updatedAt = new Date().toISOString();
+    
+    return true;
   }
 }
