@@ -46,6 +46,11 @@ export default function LoginPage() {
       console.log('Development mode detected - you can click login to proceed');
     }
   }, []);
+
+  // Function to bypass login in development
+  const bypassLogin = () => {
+    router.push('/dashboard');
+  };
   
   return (
     <div className="flex min-h-screen flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900">
@@ -66,6 +71,15 @@ export default function LoginPage() {
             <p className="font-semibold">Mock credentials (pre-filled):</p>
             <p>Email: user@example.com</p>
             <p>Password: demo1234</p>
+            
+            {process.env.NODE_ENV === 'development' && (
+              <button 
+                onClick={bypassLogin}
+                className="mt-2 w-full px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Bypass Login (Go To Dashboard)
+              </button>
+            )}
           </div>
         </div>
         
