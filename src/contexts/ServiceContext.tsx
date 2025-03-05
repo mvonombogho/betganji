@@ -55,6 +55,7 @@ const ServiceContext = createContext<ServiceContextType | undefined>(undefined);
 
 // Create provider component
 export function ServiceProvider({ children }: { children: ReactNode }) {
+  // Always use mock services for now
   const [useMockServices, setUseMockServices] = React.useState(true);
 
   // Create instances of mock services
@@ -63,14 +64,17 @@ export function ServiceProvider({ children }: { children: ReactNode }) {
   const mockPredictionService = new MockPredictionService();
   const mockUserService = new MockUserService();
 
-  // Use mock services for now
+  // Force services to always use mock implementation
   const services = {
-    matchService: useMockServices ? mockMatchService : mockMatchService,
-    oddsService: useMockServices ? mockOddsService : mockOddsService,
-    predictionService: useMockServices ? mockPredictionService : mockPredictionService,
-    userService: useMockServices ? mockUserService : mockUserService,
-    useMockServices,
-    toggleMockServices: () => setUseMockServices(prev => !prev),
+    matchService: mockMatchService,
+    oddsService: mockOddsService,
+    predictionService: mockPredictionService,
+    userService: mockUserService,
+    useMockServices: true, // Always true
+    toggleMockServices: () => {
+      console.log('Mock services are always enabled in development mode');
+      // We won't actually toggle, but maintain the function for interface consistency
+    },
   };
 
   return (
