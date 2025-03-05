@@ -54,3 +54,40 @@ The application includes a comprehensive mock data implementation that allows yo
 - **Mock User Authentication**: Login with email `user@example.com` and password `demo1234`
 
 The mock data service is automatically enabled in development mode.
+
+## Setting Up Real Services
+
+If you want to use real data services instead of mock data:
+
+1. Set up environment variables:
+```bash
+cp .env.example .env.local
+# Edit .env.local with your values
+```
+
+2. Initialize the database:
+```bash
+npm run db:generate
+npm run db:push
+npm run db:seed
+```
+
+3. Ensure your environment variables are set correctly in `.env.local`:
+```
+DATABASE_URL=...
+ANTHROPIC_API_KEY=...
+```
+
+4. Turn off mock services using the toggle in the developer control panel.
+
+## Testing
+
+Run the test suite:
+```bash
+npm test
+```
+
+Run tests in watch mode:
+```bash
+npm run test:watch
+```
