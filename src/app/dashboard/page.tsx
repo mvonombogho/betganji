@@ -102,3 +102,42 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 col-span-1 lg:col-span-2">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Live Matches</h2>
+            <Link href="/matches" className="text-blue-600 hover:text-blue-500 text-sm">
+              View All
+            </Link>
+          </div>
+          
+          {liveMatches.length === 0 ? (
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-4 text-center">
+              <p className="text-gray-500 dark:text-gray-400">No live matches at the moment</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {liveMatches.map(match => (
+                <Link 
+                  href={`/matches/${match.id}`} 
+                  key={match.id}
+                  className="block bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md p-3 transition"
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <span className="inline-block h-2 w-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                      <span className="font-medium">{match.homeTeam.name} vs {match.awayTeam.name}</span>
+                    </div>
+                    <div className="text-lg font-bold">
+                      {match.homeScore} - {match.awayScore}
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {match.competition} • Live
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
