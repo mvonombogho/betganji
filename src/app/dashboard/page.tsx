@@ -149,39 +149,3 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Upcoming Matches</h2>
-            <Link href="/matches" className="text-blue-600 hover:text-blue-500 text-sm">
-              View All
-            </Link>
-          </div>
-          
-          {upcomingMatches.length === 0 ? (
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-md p-4 text-center">
-              <p className="text-gray-500 dark:text-gray-400">No upcoming matches scheduled</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {upcomingMatches.slice(0, 5).map(match => (
-                <Link 
-                  href={`/matches/${match.id}`} 
-                  key={match.id}
-                  className="block bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md p-3 transition"
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">{match.homeTeam.name} vs {match.awayTeam.name}</span>
-                    <span className="text-gray-500 dark:text-gray-400 text-sm">
-                      {new Date(match.datetime).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {match.competition} • {new Date(match.datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
